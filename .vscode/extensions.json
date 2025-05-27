@@ -1,0 +1,21 @@
+{
+  "recommendations": [
+    "golang.go",
+    "GitHub.copilot",
+    "GitHub.copilot-chat", 
+    "a-h.templ",
+    "bradlc.vscode-tailwindcss",
+    "ms-vscode.vscode-docker",
+    "ms-vscode-remote.remote-containers",
+    "ms-vscode.makefile-tools",
+    "redhat.vscode-yaml",
+    "ms-azuretools.vscode-docker",
+    "ms-vscode.hexeditor",
+    "eamodio.gitlens",
+    "ms-vscode.vscode-json"
+  ],
+  "unwantedRecommendations": [
+    "ms-vscode.vscode-typescript",
+    "ms-vscode.node-debug2"
+  ]
+}

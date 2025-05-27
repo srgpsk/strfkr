@@ -1,0 +1,44 @@
+# Dockerfile
+Dockerfile*
+docker-compose*.yml
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+LICENSE
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+.tmp/
+
+# Test files
+*_test.go
+testdata/
+
+# Development tools
+.air.toml
+.air-*.toml
+
+# Data directories (keep structure but not actual data)
+data/
+!data/.gitkeep

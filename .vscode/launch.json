@@ -1,0 +1,64 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Webapp (Dev Container)",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/cmd/webapp",
+      "env": {
+        "PORT": "8080",
+        "DB_PATH": "${workspaceFolder}/data/quotes.db",
+        "ENV": "development",
+        "DEBUG": "true",
+        "CGO_ENABLED": "1"
+      },
+      "args": [],
+      "showLog": true,
+      "trace": "verbose",
+      "buildFlags": "-tags=dev"
+    },
+    {
+      "name": "Debug Scraper (Dev Container)",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/cmd/scraper",
+      "env": {
+        "PORT": "8081",
+        "DB_PATH": "${workspaceFolder}/data/scraper/scraper.db",
+        "ENV": "development",
+        "DEBUG": "true"
+      },
+      "args": [],
+      "showLog": true,
+      "trace": "verbose",
+      "buildFlags": "-tags=dev"
+    },
+    {
+      "name": "Debug CLI (Dev Container)",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/cmd/cli",
+      "env": {
+        "DB_PATH": "${workspaceFolder}/data/quotes.db",
+        "ENV": "development",
+        "DEBUG": "true"
+      },
+      "args": ["${input:cliCommand}"],
+      "showLog": true,
+      "trace": "verbose",
+      "buildFlags": "-tags=dev"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "cliCommand",
+      "description": "CLI command to run",
+      "default": "help",
+      "type": "promptString"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+# Development overrides for docker-compose
+# This file extends docker-compose.yml for development-specific settings
+
+services:
+  webapp:
+    # Override command for development with more verbose output
+    command: ["sh", "-c", "cd /app && air -c .air.toml"]
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=debug
+      - CGO_ENABLED=1
+      - DB_PATH=/app/data/quotes.db
+      - PORT=8080
+      - ENV=development
+      - TEMPL_HOT_RELOAD=true
+    volumes:
+      # Use local tmp directory instead of volume for Air builds
+      - ./tmp:/app/tmp
+    stdin_open: true
+    tty: true
+
+  scraper:
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=debug
+      - CGO_ENABLED=1
+      - DB_PATH=/app/data/scraper/scraper.db
+      - PORT=8081
+      - ENV=development
+    volumes:
+      # Use local tmp directory instead of volume for Air builds
+      - ./tmp:/app/tmp
+    stdin_open: true
+    tty: true
+
+  nginx:
+    # Development-specific nginx config with more permissive settings
+    environment:
+      - NGINX_LOG_LEVEL=debug

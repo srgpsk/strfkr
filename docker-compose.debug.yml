@@ -1,0 +1,68 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: debug
+    ports:
+      - "8080:8080"
+      - "2345:2345"  # Delve debugger port for webapp
+    volumes:
+      - .:/app
+      - ./data:/app/data
+    environment:
+      - PORT=8080
+      - DB_PATH=/app/data/quotes.db
+      - ENV=development
+      - DEBUG=true
+    depends_on:
+      - db
+    # develop:
+    #   watch:
+    #     - action: sync
+    #       path: .
+    #       target: /app
+    #       ignore:
+    #         - data/
+
+  scraper:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: debug
+    ports:
+      - "8081:8081" 
+      - "2346:2346"  # Delve debugger port for scraper
+    volumes:
+      - .:/app
+      - ./data:/app/data
+    environment:
+      - PORT=8081
+      - DB_PATH=/app/data/scraper/scraper.db
+      - ENV=development
+      - DEBUG=true
+    command: ["dlv", "exec", "./scraper", "--listen=:2346", "--headless=true", "--api-version=2", "--accept-multiclient", "--continue"]
+    depends_on:
+      - db
+    # develop:
+    #   watch:
+    #     - action: sync
+    #       path: .
+    #       target: /app
+    #       ignore:
+    #         - data/
+
+  db:
+    image: alpine:latest
+    volumes:
+      - ./data:/data
+    command: ["tail", "-f", "/dev/null"]  # Keep container running for SQLite files
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app

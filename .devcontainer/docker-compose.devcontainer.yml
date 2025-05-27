@@ -1,0 +1,40 @@
+services:
+  webapp:
+    # Override for dev container - ensure we have all development tools
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=debug
+      - CGO_ENABLED=1
+      - DB_PATH=/app/data/quotes.db
+      - PORT=8080
+      - ENV=development
+      - TEMPL_HOT_RELOAD=true
+      # Ensure network access for Copilot and Go modules
+      - GOPROXY=https://proxy.golang.org,direct
+      - GOSUMDB=sum.golang.org
+    
+    # DNS settings for proper internet access
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    
+    # Add capabilities needed for debugging and development
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    
+    # Keep container running for dev container
+    command: ["tail", "-f", "/dev/null"]
+
+  # Override scraper for dev container
+  scraper:
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=debug
+      - CGO_ENABLED=1
+      - DB_PATH=/app/data/scraper/scraper.db
+      - PORT=8081
+      - ENV=development
+    
+    command: ["tail", "-f", "/dev/null"]
