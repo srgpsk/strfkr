@@ -1,24 +1,27 @@
 {
-  "go.toolsManagement.checkForUpdates": "local",
-  "go.useLanguageServer": true,
-  "go.formatTool": "goimports",
-  "go.lintTool": "golangci-lint",
-  "go.lintOnSave": "package",
-  "go.buildOnSave": "package",
+  // ============================================
+  // HOST ENVIRONMENT SETTINGS
+  // ============================================
+  // Go tooling is DISABLED on host to prevent permission issues
+  // Go development should be done in containers/devcontainers
+  // Container-specific Go settings are in devcontainer.json
+  // ============================================
+  
+  // Disable Go tooling on host - only enable in containers
+  "go.toolsManagement.checkForUpdates": "off",
+  "go.useLanguageServer": false,
+  "go.survey.prompt": false,
+  "go.formatTool": "gofmt",
+  "go.lintTool": "staticcheck",
+  "go.lintOnSave": "off",
+  "go.buildOnSave": "off",
   "go.testOnSave": false,
   "go.coverOnSave": false,
-  "go.coverageDecorator": {
-    "type": "gutter",
-    "coveredHighlightColor": "rgba(64,128,128,0.5)",
-    "uncoveredHighlightColor": "rgba(128,64,64,0.25)"
-  },
-  "go.testFlags": ["-v", "-race"],
-  "go.buildFlags": ["-race"],
-  "go.toolsEnvVars": {
-    "CGO_ENABLED": "1"
-  },
-  "go.gopath": "/go",
-  "go.goroot": "/usr/local/go",
+  "go.installDependenciesWhenBuilding": false,
+  "go.gotoSymbol.includeImports": false,
+  "go.gotoSymbol.includeGoroot": false,
+  "go.autocompleteUnimportedPackages": false,
+  "go.useCodeSnippetsOnFunctionSuggest": false,
   
   // GitHub Copilot settings
   "github.copilot.enable": {
@@ -67,6 +70,8 @@
     "stackTraceDepth": 50,
     "showGlobalVariables": true
   },
+  
+  // Docker and Container settings
   "docker.environment": {
     "COMPOSE_DOCKER_CLI_BUILD": "1",
     "DOCKER_BUILDKIT": "1"

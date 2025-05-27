@@ -130,10 +130,10 @@
       "problemMatcher": ["$go"]
     },
     {
-      "label": "Run Webapp Directly",
+      "label": "Run Webapp (Dev Container)",
       "type": "shell", 
-      "command": "go",
-      "args": ["run", "./cmd/webapp/main.go"],
+      "command": "docker",
+      "args": ["compose", "exec", "webapp", "go", "run", "./cmd/webapp/main.go"],
       "group": "build",
       "presentation": {
         "echo": true,
@@ -147,10 +147,10 @@
       }
     },
     {
-      "label": "Run Scraper Directly",
+      "label": "Run Scraper (Dev Container)",
       "type": "shell",
-      "command": "go", 
-      "args": ["run", "./cmd/scraper/main.go"],
+      "command": "docker", 
+      "args": ["compose", "exec", "scraper", "go", "run", "./cmd/scraper/main.go"],
       "group": "build",
       "presentation": {
         "echo": true,

@@ -1,0 +1,36 @@
+{
+  "go.toolsManagement.checkForUpdates": "local",
+  "go.useLanguageServer": true,
+  "go.formatTool": "goimports",
+  "go.lintTool": "golangci-lint", 
+  "go.lintOnSave": "package",
+  "go.buildOnSave": "package",
+  "go.testOnSave": false,
+  "go.coverOnSave": false,
+  "go.gopath": "/go",
+  "go.goroot": "/usr/local/go",
+  "go.toolsEnvVars": {
+    "CGO_ENABLED": "1",
+    "GOMODCACHE": "/go/pkg/mod",
+    "GOCACHE": "/root/.cache/go-build"
+  },
+  "go.testFlags": ["-v", "-race"],
+  "go.buildFlags": ["-race"],
+  "go.coverageDecorator": {
+    "type": "gutter",
+    "coveredHighlightColor": "rgba(64,128,128,0.5)",
+    "uncoveredHighlightColor": "rgba(128,64,64,0.25)"
+  },
+  "go.delveConfig": {
+    "dlvLoadConfig": {
+      "followPointers": true,
+      "maxVariableRecurse": 1,
+      "maxStringLen": 64,
+      "maxArrayValues": 64,
+      "maxStructFields": -1
+    },
+    "apiVersion": 2,
+    "stackTraceDepth": 50,
+    "showGlobalVariables": true
+  }
+}

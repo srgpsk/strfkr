@@ -44,6 +44,7 @@ Thumbs.db
 tmp/
 dist/
 build/
+.cache/
 
 # Database files
 *.db
