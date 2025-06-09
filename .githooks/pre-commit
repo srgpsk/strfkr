@@ -1,0 +1,56 @@
+#!/bin/sh
+# Pre-commit hook: linting and formatting only
+
+set -e
+
+echo "🔍 Running pre-commit checks..."
+
+# Check if this is an initial commit
+if git rev-parse --verify HEAD >/dev/null 2>&1; then
+    against=HEAD
+else
+    # Initial commit: diff against an empty tree object
+    against=4b825dc642cb6eb9a060e54bf8d69288fbee4904
+fi
+
+# Get list of staged Go files
+STAGED_GO_FILES=$(git diff --cached --name-only --diff-filter=ACM $against | grep '\.go$' || true)
+
+if [ -n "$STAGED_GO_FILES" ]; then
+    echo "📝 Formatting Go files..."
+    
+    # Format Go files
+    echo "$STAGED_GO_FILES" | xargs gofmt -w -s
+    echo "$STAGED_GO_FILES" | xargs goimports -w
+    
+    # Add formatted files back to staging
+    echo "$STAGED_GO_FILES" | xargs git add
+    
+    echo "🔬 Running go vet..."
+    go vet ./...
+    
+    echo "🧹 Running go mod tidy..."
+    go mod tidy
+    git add go.mod go.sum
+    
+    echo "🔍 Running golangci-lint..."
+    golangci-lint run --fix
+    
+    # Add any files that golangci-lint might have fixed
+    echo "$STAGED_GO_FILES" | xargs git add
+fi
+
+# Check for other file types
+STAGED_OTHER_FILES=$(git diff --cached --name-only --diff-filter=ACM $against | grep -v '\.go$' || true)
+
+if [ -n "$STAGED_OTHER_FILES" ]; then
+    echo "📄 Checking other files..."
+    
+    # Check YAML files
+    echo "$STAGED_OTHER_FILES" | grep '\.ya\?ml$' | xargs -r yamllint || true
+    
+    # Check JSON files
+    echo "$STAGED_OTHER_FILES" | grep '\.json$' | xargs -r python3 -m json.tool >/dev/null || true
+fi
+
+echo "✅ Pre-commit checks passed!"

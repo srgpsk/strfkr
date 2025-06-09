@@ -1,0 +1,98 @@
+# =============================================================================
+# OPTIMIZED DOCKERIGNORE FOR FAST CACHED BUILDS
+# =============================================================================
+
+# Build and deployment files that change frequently
+Dockerfile*
+docker-compose*.yml
+Makefile
+
+# Git and version control (changes frequently)
+.git
+.gitignore
+.gitattributes
+
+# Documentation (changes frequently, not needed in image)
+*.md
+LICENSE
+
+# CI/CD files (not needed in image)
+.github/
+
+# IDE and editor files (change frequently)
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# Logs and temporary files (change constantly)
+*.log
+logs/
+tmp/
+.tmp/
+build-errors*.log
+
+# Temporary directories and files (critical exclusions)
+tmp/
+.tmp/
+temp/
+.temp/
+
+# Cache directories (can be very large and not needed in image)
+.cache/
+**/cache/
+**/.cache/
+.cache/go-mod/
+node_modules/
+
+# Test files and test data (not needed for runtime)
+*_test.go
+testdata/
+coverage.out
+coverage.html
+
+# Development tools and config (change frequently)
+.air.toml
+.air-*.toml
+.env
+.env.*
+
+# Data directories (runtime data, not build data)
+data/
+!data/.gitkeep
+
+# Build artifacts and cache
+dist/
+build/
+.cache/
+
+# Node.js (if any frontend tooling)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Go build artifacts (generated during build)
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+webapp
+scraper
+cli
+*.test
+*.out
+
+# Vendor directory (use go.mod instead)
+vendor/

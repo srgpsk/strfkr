@@ -1,0 +1,97 @@
+services:
+  # Main Go application
+  webapp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    command: ["sh", "-c", "cd /app && air -c .air.toml"]
+    ports:
+      - "8080:8080"
+      - "2345:2345"  # Debug port
+    volumes:
+      - .:/app
+      - ./tmp:/app/tmp  # Air builds
+      - strfkr_go-mod-cache:/go/pkg/mod
+      - strfkr_go-build-cache:/root/.cache/go-build
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=debug
+      - CGO_ENABLED=1
+      - DB_PATH=/app/data/quotes.db
+      - PORT=8080
+      - ENV=development
+      - TEMPL_HOT_RELOAD=true
+    networks:
+      - app-network
+    stdin_open: true
+    tty: true
+
+  # Scraper service
+  scraper:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    command: ["sh", "-c", "cd /app && air -c .air-scraper.toml"]
+    ports:
+      - "8081:8081"
+      - "2346:2346"  # Debug port
+    volumes:
+      - .:/app
+      - ./tmp:/app/tmp  # Air builds
+      - strfkr_go-mod-cache:/go/pkg/mod
+      - strfkr_go-build-cache:/root/.cache/go-build
+      - ./data/scraper:/app/data/scraper
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=debug
+      - CGO_ENABLED=1
+      - DB_PATH=/app/data/scraper/scraper.db
+      - PORT=8081
+      - ENV=development
+    networks:
+      - app-network
+    stdin_open: true
+    tty: true
+
+  # Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./web/static:/var/www/static:ro
+    environment:
+      - NGINX_LOG_LEVEL=debug
+    depends_on:
+      - webapp
+    networks:
+      - app-network
+
+  # SQLite database initialization
+  db-init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    volumes:
+      - .:/app
+      - strfkr_go-mod-cache:/go/pkg/mod
+    environment:
+      - CGO_ENABLED=1
+      - DB_PATH=/app/data/quotes.db
+    networks:
+      - app-network
+    command: ["sh", "-c", "cd /app && go run ./cmd/cli init-db"]
+
+volumes:
+  strfkr_go-mod-cache:
+  strfkr_go-build-cache:
+
+networks:
+  app-network:
+    driver: bridge

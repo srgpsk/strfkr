@@ -1,0 +1,78 @@
+# Logs
+logs/
+tmp/
+*.log
+build-errors*.log
+
+# Binaries
+*.so
+*.dylib
+webapp
+scraper
+cli
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.html
+
+# Dependency directories
+vendor/
+node_modules/
+
+# Go workspace file
+go.work
+
+# IDE
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Build artifacts
+tmp/
+dist/
+build/
+.cache/
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Air live reloading
+.air.toml
+.air-*.toml
+
+# But DO track git hooks
+!.githooks/
+
+# Data directories
+data/
+!data/.gitkeep
+
+# Static generated files
+web/static/generated/
+
+# Node.js (if any frontend tooling is added later)
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*tmp/
+
+.github/
+!.github/workflows/

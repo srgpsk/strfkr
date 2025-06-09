@@ -1,0 +1,27 @@
+#!/bin/sh
+# Pre-push hook: run full test suite
+
+set -e
+
+echo "🧪 Running full test suite before push..."
+
+# Run all tests with race detection and coverage
+echo "🏃 Running tests with race detection..."
+go test -race ./...
+
+echo "📊 Running tests with coverage..."
+go test -coverprofile=coverage.out ./...
+
+# Optional: Check coverage threshold
+COVERAGE=$(go tool cover -func=coverage.out | tail -1 | awk '{print $3}' | sed 's/%//')
+THRESHOLD=80
+
+if [ "${COVERAGE%.*}" -lt $THRESHOLD ]; then
+    echo "❌ Test coverage ($COVERAGE%) is below threshold ($THRESHOLD%)"
+    exit 1
+fi
+
+echo "✅ All tests passed! Coverage: $COVERAGE%"
+
+# Clean up coverage file
+rm -f coverage.out
