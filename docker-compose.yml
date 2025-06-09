@@ -14,6 +14,9 @@ services:
       - ./tmp:/app/tmp  # Air builds
       - strfkr_go-mod-cache:/go/pkg/mod
       - strfkr_go-build-cache:/root/.cache/go-build
+      # Add GPG and SSH for devcontainer
+      - ${HOME}/.gnupg:/root/.gnupg:cached
+      - ${HOME}/.ssh:/root/.ssh:cached
     environment:
       - DEBUG=true
       - LOG_LEVEL=debug
@@ -80,7 +83,9 @@ services:
       target: development
     volumes:
       - .:/app
+      - ./tmp:/app/tmp
       - strfkr_go-mod-cache:/go/pkg/mod
+      - strfkr_go-build-cache:/root/.cache/go-build
     environment:
       - CGO_ENABLED=1
       - DB_PATH=/app/data/quotes.db

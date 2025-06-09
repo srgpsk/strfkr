@@ -49,9 +49,8 @@
   
   "overrideCommand": false,
   
+  // Only mount what docker-compose CAN'T handle
   "mounts": [
-    "source=strfkr_go-mod-cache,target=/go/pkg/mod,type=volume",
-    "source=strfkr_go-build-cache,target=/root/.cache/go-build,type=volume",
     "source=${localEnv:HOME}/.ssh,target=/root/.ssh,type=bind,consistency=cached",
     "source=${localEnv:HOME}/.gnupg,target=/root/.gnupg,type=bind,consistency=cached"
   ],
