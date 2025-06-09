@@ -35,7 +35,8 @@
         },
         "terminal.integrated.defaultProfile.linux": "bash",
         "files.associations": {
-          "*.templ": "html"
+          "*.templ": "html",
+          ".githooks/*": "shellscript"
         },
         "emmet.includeLanguages": {
           "templ": "html"

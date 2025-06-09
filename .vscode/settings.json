@@ -26,7 +26,12 @@
   
   // Templ template support
   "files.associations": {
-    "*.templ": "html"
+    "*.templ": "html",
+    ".githooks/*": "shellscript",
+    ".githooks/pre-commit": "shellscript",
+    ".githooks/pre-push": "shellscript", 
+    ".githooks/commit-msg": "shellscript",
+    ".githooks/install.sh": "shellscript"
   },
   "emmet.includeLanguages": {
     "templ": "html"

@@ -10,6 +10,7 @@ else
     # Make hooks executable
     chmod +x .githooks/pre-commit
     chmod +x .githooks/pre-push
+    chmod +x .githooks/commit-msg
     
     # Install hooks
     git config core.hooksPath .githooks
@@ -31,4 +32,5 @@ echo ""
 echo "Hooks configured:"
 echo "  📝 pre-commit: Format, lint, vet (no tests)"
 echo "  🧪 pre-push: Full test suite with coverage"
-echo "  🔐 commit-signing: Enabled (if GPG key available)"
+echo "  📄 commit-msg: Enforce conventional commit format"
+echo "  🔐 commit-signing: $([ -n "$(gpg --list-secret-keys)" ] && echo "Enabled" || echo "Disabled (no keys)")"
