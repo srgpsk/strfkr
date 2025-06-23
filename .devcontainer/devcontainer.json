@@ -5,8 +5,6 @@
   "workspaceFolder": "/app",
   "shutdownAction": "stopCompose",
   
-  "runServices": ["webapp", "nginx"],
-  
   "customizations": {
     "vscode": {
       "extensions": [
@@ -49,7 +47,6 @@
   
   "overrideCommand": false,
   
-  // Only mount what docker-compose CAN'T handle
   "mounts": [
     "source=${localEnv:HOME}/.ssh,target=/root/.ssh,type=bind,consistency=cached",
     "source=${localEnv:HOME}/.gnupg,target=/root/.gnupg,type=bind,consistency=cached"
@@ -70,7 +67,7 @@
       "onAutoForward": "silent"
     },
     "2346": {
-      "label": "Delve Debugger (Scraper)", 
+      "label": "Delve Debugger (Scraper)",
       "onAutoForward": "silent"
     }
   },
@@ -83,4 +80,3 @@
     "ghcr.io/devcontainers/features/github-cli:1": {}
   }
 }
-

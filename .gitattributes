@@ -61,14 +61,14 @@ Makefile text eol=lf
 *.tar binary
 *.gz binary
 
-# Git hooks - ensure they're treated as shell scripts, not YAML
+# Git hooks - ensure they have proper line endings and are detected as shell scripts
 .githooks/* text eol=lf linguist-language=Shell
-.githooks/pre-commit text eol=lf linguist-language=Shell
-.githooks/pre-push text eol=lf linguist-language=Shell
-.githooks/commit-msg text eol=lf linguist-language=Shell
-.githooks/install.sh text eol=lf linguist-language=Shell
+.githooks/pre-commit text eol=lf
+.githooks/pre-push text eol=lf
+.githooks/commit-msg text eol=lf
+.githooks/install.sh text eol=lf
 
-# Exclude files from export-ignore (fix the syntax)
+# Exclude files from git archive exports
 .gitattributes export-ignore
 .gitignore export-ignore
 README.md export-ignore
