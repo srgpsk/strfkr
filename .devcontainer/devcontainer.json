@@ -11,7 +11,10 @@
         "golang.go",
         "GitHub.copilot",
         "GitHub.copilot-chat",
-        "a-h.templ"
+        "a-h.templ",
+        "bradlc.vscode-tailwindcss",
+        "ms-vscode.vscode-json",
+        "redhat.vscode-yaml"
       ],
       "settings": {
         "go.toolsManagement.checkForUpdates": "local",

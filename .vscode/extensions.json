@@ -1,14 +1,85 @@
 {
-  "recommendations": [
-    "golang.go",
-    "GitHub.copilot",
-    "GitHub.copilot-chat", 
-    "a-h.templ",
-    "bradlc.vscode-tailwindcss",
-    "ms-azuretools.vscode-containers",
-    "ms-vscode-remote.remote-containers",
-    "ms-vscode.makefile-tools",
-    "ms-vscode.vscode-json",
-    "redhat.vscode-yaml",
-  ]
+    "name": "Strfkr",
+    "dockerComposeFile": [
+        "../docker-compose.yml"
+    ],
+    "service": "webapp",
+    "workspaceFolder": "/app",
+    "shutdownAction": "stopCompose",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "golang.go",
+                "GitHub.copilot",
+                "GitHub.copilot-chat",
+                "a-h.templ",
+                "bradlc.vscode-tailwindcss",
+                "ms-vscode.vscode-json",
+                "redhat.vscode-yaml"
+            ],
+            "settings": {
+                "go.toolsManagement.checkForUpdates": "local",
+                "go.useLanguageServer": true,
+                "go.formatTool": "goimports",
+                "editor.formatOnSave": true,
+                "editor.codeActionsOnSave": {
+                    "source.organizeImports": "explicit"
+                },
+                "go.gopath": "/go",
+                "go.goroot": "/usr/local/go",
+                "go.lintTool": "golangci-lint",
+                "go.lintOnSave": "package",
+                "go.buildOnSave": "off",
+                "go.toolsEnvVars": {
+                    "CGO_ENABLED": "1",
+                    "GOMODCACHE": "/go/pkg/mod",
+                    "GOCACHE": "/root/.cache/go-build"
+                },
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "files.associations": {
+                    "*.templ": "html",
+                    ".githooks/*": "shellscript"
+                },
+                "emmet.includeLanguages": {
+                    "templ": "html"
+                }
+            }
+        }
+    },
+    "postCreateCommand": "go version && .githooks/install.sh && echo '\ud83c\udf89 Development environment ready!'",
+    "overrideCommand": false,
+    "mounts": [
+        "source=${localEnv:HOME}/.ssh,target=/root/.ssh,type=bind,consistency=cached",
+        "source=${localEnv:HOME}/.gnupg,target=/root/.gnupg,type=bind,consistency=cached"
+    ],
+    "forwardPorts": [
+        8080,
+        8081,
+        2345,
+        2346
+    ],
+    "portsAttributes": {
+        "8080": {
+            "label": "Webapp",
+            "onAutoForward": "notify"
+        },
+        "8081": {
+            "label": "Scraper",
+            "onAutoForward": "silent"
+        },
+        "2345": {
+            "label": "Delve Debugger (Webapp)",
+            "onAutoForward": "silent"
+        },
+        "2346": {
+            "label": "Delve Debugger (Scraper)",
+            "onAutoForward": "silent"
+        }
+    },
+    "containerUser": "root",
+    "updateRemoteUserUID": false,
+    "features": {
+        "ghcr.io/devcontainers/features/git:1": {},
+        "ghcr.io/devcontainers/features/github-cli:1": {}
+    }
 }
