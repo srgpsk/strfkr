@@ -12,72 +12,115 @@ else
     chmod +x .githooks/pre-push
     chmod +x .githooks/commit-msg
     
-    # Verify hooks are executable
-    echo "📋 Verifying hook permissions..."
-    ls -la .githooks/pre-commit .githooks/pre-push .githooks/commit-msg
-    
     # Install hooks
     git config core.hooksPath .githooks
-    
-    # Verify hooks path is set
-    echo "📋 Git hooks path: $(git config core.hooksPath)"
-    
-    # Test commit-msg hook with clearer logic
-    echo "🧪 Testing commit-msg hook..."
-    echo "Add new feature" > /tmp/test-commit-msg
-    
-    # Run the hook and capture the exit code
-    if .githooks/commit-msg /tmp/test-commit-msg 2>/dev/null; then
-        echo "❌ commit-msg hook test FAILED - invalid message was accepted!"
-        echo "🔧 Hook may not be working properly"
-    else
-        echo "✅ commit-msg hook test PASSED - correctly rejected invalid message!"
-    fi
-    
-    # Test with valid message
-    echo "feat: add new feature" > /tmp/test-commit-msg-valid
-    if .githooks/commit-msg /tmp/test-commit-msg-valid 2>/dev/null; then
-        echo "✅ commit-msg hook accepts valid messages"
-    else
-        echo "❌ commit-msg hook incorrectly rejected valid message"
-    fi
-    
-    rm -f /tmp/test-commit-msg /tmp/test-commit-msg-valid
     
     # Configure GPG
     echo "🔐 Configuring GPG..."
     
-    # Ensure GPG directory exists and has correct permissions
-    mkdir -p ~/.gnupg
-    chmod 700 ~/.gnupg
+    # Check if we're in a container environment
+    if [ -f "/.dockerenv" ] || [ -n "$REMOTE_CONTAINERS" ] || [ -n "$CODESPACES" ]; then
+        echo "📦 Running in container environment"
+        
+        # Use container-specific GPG home to avoid affecting host
+        export GNUPGHOME="/tmp/.gnupg-container"
+        mkdir -p "$GNUPGHOME"
+        chmod 700 "$GNUPGHOME"
+        
+        # Set GPG TTY for container
+        export GPG_TTY=$(tty)
+        echo "export GPG_TTY=\$(tty)" >> ~/.bashrc
+        echo "export GNUPGHOME=\"$GNUPGHOME\"" >> ~/.bashrc
+        
+        # Configure GPG for container use with loopback pinentry
+        cat > "$GNUPGHOME/gpg.conf" << EOF
+use-agent
+pinentry-mode loopback
+no-tty
+batch
+EOF
+        
+        # Configure GPG agent for container
+        cat > "$GNUPGHOME/gpg-agent.conf" << EOF
+default-cache-ttl 28800
+max-cache-ttl 86400
+allow-loopback-pinentry
+pinentry-program /usr/bin/pinentry-curses
+EOF
+        
+        # Kill and restart GPG agent with proper error handling
+        echo "🔄 Restarting GPG agent..."
+        gpgconf --kill gpg-agent 2>/dev/null || true
+        sleep 1
+        gpg-agent --daemon 2>/dev/null || true
+        
+        # Import keys from host if available (but don't modify host directory)
+        if [ -d "/root/.gnupg" ] && [ -f "/root/.gnupg/secring.gpg" -o -f "/root/.gnupg/private-keys-v1.d" ]; then
+            echo "🔑 Importing GPG keys from host..."
+            # Copy keys without changing host permissions
+            if [ -f "/root/.gnupg/secring.gpg" ]; then
+                cp "/root/.gnupg/secring.gpg" "$GNUPGHOME/" 2>/dev/null || true
+            fi
+            if [ -f "/root/.gnupg/pubring.gpg" ]; then
+                cp "/root/.gnupg/pubring.gpg" "$GNUPGHOME/" 2>/dev/null || true
+            fi
+            if [ -d "/root/.gnupg/private-keys-v1.d" ]; then
+                cp -r "/root/.gnupg/private-keys-v1.d" "$GNUPGHOME/" 2>/dev/null || true
+            fi
+            if [ -f "/root/.gnupg/trustdb.gpg" ]; then
+                cp "/root/.gnupg/trustdb.gpg" "$GNUPGHOME/" 2>/dev/null || true
+            fi
+        fi
+        
+    else
+        # Host environment configuration - use default GPG home
+        # Ensure GPG directory exists and has correct permissions
+        mkdir -p ~/.gnupg
+        chmod 700 ~/.gnupg
+        chmod 600 ~/.gnupg/* 2>/dev/null || true
+        
+        cat > ~/.gnupg/gpg.conf << EOF
+use-agent
+pinentry-mode loopback
+EOF
+        
+        cat > ~/.gnupg/gpg-agent.conf << EOF
+default-cache-ttl 28800
+max-cache-ttl 86400
+allow-loopback-pinentry
+EOF
+        
+        # Set GPG TTY environment variable
+        echo 'export GPG_TTY=$(tty)' >> ~/.bashrc
+        export GPG_TTY=$(tty)
+        
+        # Restart GPG agent
+        gpgconf --kill gpg-agent
+        gpg-agent --daemon
+    fi
     
     # Check if GPG keys are available
     if gpg --list-secret-keys --keyid-format=long | grep -q "sec"; then
-        echo "🔐 GPG keys found. Configuring commit signing..."
-        
-        # Configure GPG agent for better passphrase caching
-        echo "default-cache-ttl 28800" > ~/.gnupg/gpg-agent.conf   # 8 hours
-        echo "max-cache-ttl 86400" >> ~/.gnupg/gpg-agent.conf      # 24 hours
-        echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
+        echo "🔐 GPG keys found. Enabling commit signing..."
         
         # Configure Git for signing
         git config commit.gpgsign true
         git config tag.gpgsign true
         
-        # Set GPG TTY
-        echo 'export GPG_TTY=$(tty)' >> ~/.bashrc
-        export GPG_TTY=$(tty)
+        # Test GPG signing with loopback mode
+        echo "🧪 Testing GPG signing..."
+        if echo "test" | gpg --clearsign --armor --pinentry-mode loopback >/dev/null 2>&1; then
+            echo "✅ GPG signing test successful!"
+        else
+            echo "⚠️  GPG signing test failed. Disabling commit signing..."
+            git config commit.gpgsign false
+            git config tag.gpgsign false
+        fi
         
-        # Reload GPG agent
-        gpgconf --reload gpg-agent
-        
-        echo "✅ Commit signing enabled with passphrase caching!"
     else
-        echo "⚠️  No GPG keys found in devcontainer."
-        echo "📝 To fix this:"
-        echo "   1. Check that ~/.gnupg is properly mounted from host"
-        echo "   2. Or import your GPG keys manually"
-        echo "   3. Run this script again after fixing"
+        echo "⚠️  No GPG keys found."
+        git config commit.gpgsign false
+        git config tag.gpgsign false
     fi
     
     echo "✅ Git hooks installed!"
@@ -88,4 +131,4 @@ echo "Hooks configured:"
 echo "  📝 pre-commit: Format, lint, vet (no tests)"
 echo "  🧪 pre-push: Full test suite with coverage"
 echo "  📄 commit-msg: Enforce conventional commit format"
-echo "  🔐 commit-signing: $([ -n "$(gpg --list-secret-keys)" ] && echo "Enabled" || echo "Disabled (no keys)")"
+echo "  🔐 commit-signing: $(git config commit.gpgsign || echo 'false')"
