@@ -1,10 +1,11 @@
 services:
-  # Main Go application
   webapp:
     build:
       context: .
       dockerfile: Dockerfile
       target: development
+      args:
+        BUILDKIT_INLINE_CACHE: 1
     command: ["sh", "-c", "cd /app && air -c .air.toml"]
     ports:
       - "8080:8080"
@@ -14,14 +15,15 @@ services:
       - ./tmp:/app/tmp  # Air builds
       - strfkr_go-mod-cache:/go/pkg/mod
       - strfkr_go-build-cache:/root/.cache/go-build
-      # Add GPG and SSH for devcontainer
+      - ./data/webapp:/app/data:rw
+      # GPG and SSH for devcontainer
       - ${HOME}/.gnupg:/root/.gnupg:cached
       - ${HOME}/.ssh:/root/.ssh:cached
     environment:
       - DEBUG=true
       - LOG_LEVEL=debug
       - CGO_ENABLED=1
-      - DB_PATH=/app/data/quotes.db
+      - DB_PATH=/app/data/webapp.db
       - PORT=8080
       - ENV=development
       - TEMPL_HOT_RELOAD=true
@@ -30,12 +32,13 @@ services:
     stdin_open: true
     tty: true
 
-  # Scraper service
   scraper:
     build:
       context: .
       dockerfile: Dockerfile
       target: development
+      args:
+        BUILDKIT_INLINE_CACHE: 1
     command: ["sh", "-c", "cd /app && air -c .air-scraper.toml"]
     ports:
       - "8081:8081"
@@ -45,12 +48,12 @@ services:
       - ./tmp:/app/tmp  # Air builds
       - strfkr_go-mod-cache:/go/pkg/mod
       - strfkr_go-build-cache:/root/.cache/go-build
-      - ./data/scraper:/app/data/scraper
+      - ./data/scraper:/app/data:rw
     environment:
       - DEBUG=true
       - LOG_LEVEL=debug
       - CGO_ENABLED=1
-      - DB_PATH=/app/data/scraper/scraper.db
+      - DB_PATH=/app/data/scraper.db
       - PORT=8081
       - ENV=development
     networks:
@@ -58,7 +61,6 @@ services:
     stdin_open: true
     tty: true
 
-  # Nginx reverse proxy
   nginx:
     image: nginx:alpine
     ports:
@@ -74,24 +76,6 @@ services:
       - webapp
     networks:
       - app-network
-
-  # SQLite database initialization
-  db-init:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: development
-    volumes:
-      - .:/app
-      - ./tmp:/app/tmp
-      - strfkr_go-mod-cache:/go/pkg/mod
-      - strfkr_go-build-cache:/root/.cache/go-build
-    environment:
-      - CGO_ENABLED=1
-      - DB_PATH=/app/data/quotes.db
-    networks:
-      - app-network
-    command: ["sh", "-c", "cd /app && go run ./cmd/cli init-db"]
 
 volumes:
   strfkr_go-mod-cache:

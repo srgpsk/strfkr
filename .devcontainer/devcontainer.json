@@ -1,6 +1,6 @@
 {
   "name": "Strfkr",
-  "dockerComposeFile": "../docker-compose.yml",
+  "dockerComposeFile": ["../docker-compose.yml"],
   "service": "webapp",
   "workspaceFolder": "/app",
   "shutdownAction": "stopCompose",

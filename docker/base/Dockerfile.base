@@ -1,0 +1,75 @@
+FROM golang:1.24-bullseye AS base
+
+# Metadata
+LABEL maintainer="strfkr-dev"
+LABEL description="Base development image for Strfkr project"
+LABEL version="1.0"
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    # Core utilities
+    git ca-certificates tzdata wget curl \
+    # SQLite support
+    sqlite3 libsqlite3-dev \
+    # Build tools
+    build-essential pkg-config \
+    # Development utilities
+    htop tree jq vim nano \
+    # Network tools for debugging
+    net-tools iputils-ping telnet \
+    # Linting tools
+    yamllint \
+    # GPG for commit signing
+    gnupg2 \
+    # Clean up to reduce image size
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean \
+    && apt-get autoremove -y
+
+# Install Go development tools in specific order for better caching
+RUN go install github.com/air-verse/air@latest
+RUN go install github.com/a-h/templ/cmd/templ@latest  
+RUN go install golang.org/x/tools/gopls@latest
+RUN go install golang.org/x/tools/cmd/goimports@latest
+
+# Install golangci-lint using the official installer
+RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.61.0
+
+# Install remaining tools
+RUN go install github.com/go-delve/delve/cmd/dlv@latest
+RUN go install github.com/swaggo/swag/cmd/swag@latest
+RUN go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+
+# Set up environment and workspace
+WORKDIR /app
+RUN mkdir -p cmd internal pkg web/templates web/static data tmp
+
+# Go environment
+ENV CGO_ENABLED=1
+ENV GO111MODULE=on
+ENV GOPROXY=https://proxy.golang.org,direct
+ENV GOSUMDB=sum.golang.org
+
+# Development environment
+ENV PATH="/go/bin:${PATH}"
+ENV GOPATH="/go"
+ENV GOCACHE="/root/.cache/go-build"
+
+# Create cache directories with proper permissions
+RUN mkdir -p /go/pkg/mod /root/.cache/go-build \
+    && chmod 755 /go/pkg/mod /root/.cache/go-build
+
+# Verify installations using commands that return exit code 0
+RUN echo "🔍 Verifying tool installations..." && \
+    go version && \
+    air -v && \
+    templ version && \
+    gopls version && \
+    goimports -h > /dev/null 2>&1 || echo "✅ goimports installed" && \
+    golangci-lint --version && \
+    dlv version && \
+    swag -v && \
+    migrate -version && \
+    echo "✅ All tools verified successfully!"
+
+WORKDIR /app

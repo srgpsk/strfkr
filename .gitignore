@@ -62,9 +62,16 @@ build/
 # But DO track git hooks
 !.githooks/
 
-# Data directories
+# Data directories - keep structure but ignore database files
 data/
 !data/.gitkeep
+!data/*/.gitkeep
+
+# Or if you want to be more specific:
+# data/webapp/*.db
+# data/scraper/*.db
+# !data/webapp/.gitkeep
+# !data/scraper/.gitkeep
 
 # Static generated files
 web/static/generated/
