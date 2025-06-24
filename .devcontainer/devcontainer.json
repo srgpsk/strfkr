@@ -4,6 +4,9 @@
   "service": "webapp",
   "workspaceFolder": "/app",
   "shutdownAction": "stopCompose",
+
+  "remoteUser": "vscode",
+  "updateRemoteUserUID": true,
   
   "customizations": {
     "vscode": {
@@ -78,9 +81,6 @@
       "onAutoForward": "silent"
     }
   },
-
-  "containerUser": "root",
-  "updateRemoteUserUID": false,
 
   "features": {
     "ghcr.io/devcontainers/features/git:1": {},
