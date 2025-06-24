@@ -6,6 +6,8 @@ services:
       target: development
       args:
         BUILDKIT_INLINE_CACHE: 1
+    image: webapp
+    container_name: webapp
     command: ["sh", "-c", "cd /app && air -c .air.toml"]
     ports:
       - "8080:8080"
@@ -39,6 +41,8 @@ services:
       target: development
       args:
         BUILDKIT_INLINE_CACHE: 1
+    image: scraper
+    container_name: scraper
     command: ["sh", "-c", "cd /app && air -c .air-scraper.toml"]
     ports:
       - "8081:8081"
@@ -63,6 +67,7 @@ services:
 
   nginx:
     image: nginx:alpine
+    container_name: nginx
     ports:
       - "80:80"
       - "443:443"
