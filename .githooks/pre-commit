@@ -55,13 +55,42 @@ if ! git diff --cached --quiet; then
     STAGED_OTHER_FILES=$(git diff --cached --name-only --diff-filter=ACM $against | grep -v '\.go$' || true)
 
     if [ -n "$STAGED_OTHER_FILES" ]; then
-        echo "📄 Checking other files..."
+        echo "📄 Checking and formatting other files..."
         
-        # Check YAML files
-        echo "$STAGED_OTHER_FILES" | grep '\.ya\?ml$' | xargs -r yamllint || true
+        # Auto-fix YAML files with yamlfmt (Go-based)
+        YAML_FILES=$(echo "$STAGED_OTHER_FILES" | grep '\.ya\?ml$' || true)
+        if [ -n "$YAML_FILES" ]; then
+            if command -v yamlfmt >/dev/null 2>&1; then
+                echo "🎨 Auto-fixing YAML files with yamlfmt..."
+                echo "$YAML_FILES" | xargs yamlfmt
+                # Re-stage the fixed files
+                echo "$YAML_FILES" | xargs git add
+                echo "✅ YAML files formatted"
+            else
+                echo "⚠️  yamlfmt not found, skipping YAML formatting"
+            fi
+        fi
         
-        # Check JSON files
-        echo "$STAGED_OTHER_FILES" | grep '\.json$' | xargs -r python3 -m json.tool >/dev/null || true
+        # Validate JSON files using Go standard library
+        JSON_FILES=$(echo "$STAGED_OTHER_FILES" | grep '\.json$' || true)
+        if [ -n "$JSON_FILES" ]; then
+            echo "📋 Validating JSON files with Go..."
+            for file in $JSON_FILES; do
+                # Use Go to validate JSON
+                if ! go run -c 'package main
+import ("encoding/json"; "io"; "os")
+func main() {
+    var v interface{}
+    if err := json.NewDecoder(os.Stdin).Decode(&v); err != nil {
+        os.Exit(1)
+    }
+}' < "$file" 2>/dev/null; then
+                    echo "❌ Invalid JSON syntax in: $file"
+                    exit 1
+                fi
+            done
+            echo "✅ JSON files validated with Go"
+        fi
     fi
 
     echo "✅ Pre-commit checks passed!"
