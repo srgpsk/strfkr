@@ -1,0 +1,40 @@
+# yamlfmt configuration file
+# See: https://github.com/google/yamlfmt/blob/main/docs/config-file.md
+
+# Formatter settings
+formatter:
+  # Basic formatting
+  type: basic
+  
+  # Indentation settings
+  indent: 2
+  include_document_start: true
+  line_ending: lf
+  
+  # Preserve formatting in certain cases
+  retain_line_breaks_single: false
+  disallow_anchors: false
+  max_line_length: 120
+  
+  # Scanning for arrays and maps
+  scan_folded_as_literal: false
+  
+  # Drop merge keys
+  drop_merge_tag: false
+
+# Paths to include/exclude
+include:
+  - "**/*.yml"
+  - "**/*.yaml"
+
+exclude:
+  - ".git/**"
+  - "vendor/**"
+  - "**/testdata/**"
+  - "tmp/**"
+  - ".cache/**"
+
+# Extensions to format
+extensions:
+  - yml
+  - yaml
