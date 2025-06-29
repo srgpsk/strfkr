@@ -18,7 +18,11 @@ CREATE TABLE spider_targets (
     -- Additional metadata
     user_agent TEXT,
     custom_headers TEXT, -- JSON string for custom headers
-    notes TEXT
+    notes TEXT,
+    
+    sitemap_patterns TEXT, -- JSON array of regex patterns for filtering sub-sitemaps
+    url_patterns TEXT,     -- JSON array of regex patterns for filtering URLs  
+    domain_name TEXT      -- Extract from website_url for easier pattern lookup
 );
 
 -- Crawled pages storage
@@ -84,6 +88,7 @@ CREATE INDEX idx_spider_queue_status ON spider_queue(status);
 CREATE INDEX idx_spider_queue_target_id ON spider_queue(target_id);
 CREATE INDEX idx_spider_logs_type ON spider_logs(log_type);
 CREATE INDEX idx_spider_logs_created_at ON spider_logs(created_at);
+CREATE INDEX idx_spider_targets_domain ON spider_targets(domain_name);
 
 -- Default configuration values
 INSERT INTO spider_config (key, value, description) VALUES 
