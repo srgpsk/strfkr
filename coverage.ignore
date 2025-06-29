@@ -1,0 +1,6 @@
+// Coverage exclusion patterns
+cmd/
+internal/spider/db/
+*.pb.go
+*_gen.go
+main.go
