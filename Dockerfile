@@ -18,18 +18,11 @@ RUN if find . -name "*.templ" -type f | grep -q .; then \
         echo "ℹ️  No .templ files found, skipping template generation"; \
     fi
 
-# Install sqlc
-RUN curl -L https://github.com/sqlc-dev/sqlc/releases/download/v1.27.0/sqlc_1.27.0_linux_amd64.tar.gz \
-    | tar -xz -C /usr/local/bin
-
-# Generate code during build
-RUN sqlc generate -f sqlc.spider.yaml
-
 # Expose ports
 EXPOSE 8080 8081 2345 2346
 
-# Default command
-CMD ["air", "-c", ".air.toml"]
+# Generate sqlc code at startup, then run air
+CMD ["sh", "-c", "mkdir -p internal/spider/db && sqlc generate -f sqlc.spider.yaml && air -c .air.toml"]
 
 # Production stage (for later)
 FROM dependencies AS production

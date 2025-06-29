@@ -11,11 +11,11 @@ services:
     command: ["sh", "-c", "cd /app && air -c .air.toml"]
     ports:
       - "8080:8080"
-      - "2345:2345"  # Debug port
+      - "2345:2345" # Debug port
     volumes:
       - .:/app
       - ./tmp:/app/tmp
-      - strfkr_go-mod-cache:/home/vscode/go/pkg/mod 
+      - strfkr_go-mod-cache:/home/vscode/go/pkg/mod
       - strfkr_go-build-cache:/home/vscode/.cache/go-build
       - ./data/webapp:/app/data:rw
       - ${HOME}/.gnupg:/home/vscode/.gnupg:ro
@@ -31,12 +31,11 @@ services:
       - HOME=/home/vscode
       - GOCACHE=/home/vscode/.cache/go-build
       - GOPATH=/home/vscode/go
-      - GOMODCACHE=/home/vscode/go/pkg/mod 
+      - GOMODCACHE=/home/vscode/go/pkg/mod
     networks:
       - app-network
     stdin_open: true
     tty: true
-
   scraper:
     build:
       context: .
@@ -46,15 +45,14 @@ services:
         BUILDKIT_INLINE_CACHE: 1
     image: scraper
     container_name: scraper
-    # Remove user: "1000:1000" - now using vscode user from Dockerfile
-    command: ["sh", "-c", "cd /app && air -c .air-scraper.toml"]
+    command: ["sh", "-c", "mkdir -p internal/spider/db && sqlc generate -f sqlc.spider.yaml && cd /app && air -c .air-scraper.toml"]
     ports:
       - "8081:8081"
-      - "2346:2346"  # Debug port
+      - "2346:2346" # Debug port
     volumes:
       - .:/app
       - ./tmp:/app/tmp
-      - strfkr_go-mod-cache:/home/vscode/go/pkg/mod 
+      - strfkr_go-mod-cache:/home/vscode/go/pkg/mod
       - strfkr_go-build-cache:/home/vscode/.cache/go-build
       - ./data/scraper:/app/data:rw
       - ${HOME}/.gnupg:/home/vscode/.gnupg:ro
@@ -69,12 +67,11 @@ services:
       - HOME=/home/vscode
       - GOCACHE=/home/vscode/.cache/go-build
       - GOPATH=/home/vscode/go
-      - GOMODCACHE=/home/vscode/go/pkg/mod 
+      - GOMODCACHE=/home/vscode/go/pkg/mod
     networks:
       - app-network
     stdin_open: true
     tty: true
-
   nginx:
     image: nginx:alpine
     container_name: nginx
@@ -91,11 +88,9 @@ services:
       - webapp
     networks:
       - app-network
-
 volumes:
   strfkr_go-mod-cache:
   strfkr_go-build-cache:
-
 networks:
   app-network:
     driver: bridge
