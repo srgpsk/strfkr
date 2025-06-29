@@ -86,4 +86,4 @@ yarn-error.log*tmp/
 
 # SQLC generated files
 internal/spider/db/*.go
-!internal/spider/db/db.go  # Keep manually written database connection code
+!internal/spider/db/connection.go  # Keep manually written database connection code
