@@ -18,8 +18,6 @@ services:
       - strfkr_go-mod-cache:/home/vscode/go/pkg/mod
       - strfkr_go-build-cache:/home/vscode/.cache/go-build
       - ./data/webapp:/app/data:rw
-      - ${HOME}/.gnupg:/home/vscode/.gnupg:ro
-      - ${HOME}/.ssh:/home/vscode/.ssh:ro
     environment:
       - DEBUG=true
       - LOG_LEVEL=debug
@@ -55,8 +53,6 @@ services:
       - strfkr_go-mod-cache:/home/vscode/go/pkg/mod
       - strfkr_go-build-cache:/home/vscode/.cache/go-build
       - ./data/scraper:/app/data:rw
-      - ${HOME}/.gnupg:/home/vscode/.gnupg:ro
-      - ${HOME}/.ssh:/home/vscode/.ssh:ro
     environment:
       - DEBUG=true
       - LOG_LEVEL=debug

@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y \
     # Build tools
     build-essential pkg-config \
     # Development utilities
-    htop tree yq vim \
+    htop tree vim \
     # Network tools for debugging
     net-tools iputils-ping telnet \
     # GPG for commit signing
@@ -55,6 +55,10 @@ ENV GO111MODULE=on
 ENV GOPROXY=https://proxy.golang.org,direct
 ENV GOSUMDB=sum.golang.org
 
+# Build arguments for conditional key copying
+ARG COPY_GPG=false
+ARG COPY_SSH=false
+
 # Create vscode user with UID 1000 to match host user
 RUN groupadd --gid 1000 vscode \
     && useradd --uid 1000 --gid vscode --shell /bin/bash --create-home vscode \
@@ -62,7 +66,38 @@ RUN groupadd --gid 1000 vscode \
     && echo 'vscode ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers.d/vscode \
     && chmod 0440 /etc/sudoers.d/vscode
 
-# Set up Go environment for vscode user (create directories as vscode user)
+# Create base directories
+RUN mkdir -p /home/vscode/.gnupg /home/vscode/.ssh \
+    && chown -R vscode:vscode /home/vscode \
+    && chmod 700 /home/vscode/.gnupg /home/vscode/.ssh
+
+# Conditionally copy GPG keys from build context
+COPY --chown=vscode:vscode .build-keys-temp/.gnupg/ /tmp/gnupg-host/
+RUN if [ "$COPY_GPG" = "true" ] && [ -d "/tmp/gnupg-host" ]; then \
+        cp -r /tmp/gnupg-host/* /home/vscode/.gnupg/ && \
+        chown -R vscode:vscode /home/vscode/.gnupg && \
+        chmod 700 /home/vscode/.gnupg && \
+        find /home/vscode/.gnupg -type f -exec chmod 600 {} \; && \
+        find /home/vscode/.gnupg -type d -exec chmod 700 {} \; && \
+        echo "✅ GPG keys copied to image with correct permissions"; \
+    else \
+        echo "ℹ️  No GPG keys copied"; \
+    fi && \
+    rm -rf /tmp/gnupg-host
+
+# Conditionally copy SSH keys from build context
+COPY --chown=vscode:vscode .build-keys-temp/.ssh/ /tmp/ssh-host/
+RUN if [ "$COPY_SSH" = "true" ] && [ -d "/tmp/ssh-host" ]; then \
+        cp -r /tmp/ssh-host/* /home/vscode/.ssh/ && \
+        chmod 600 /home/vscode/.ssh/* 2>/dev/null || true && \
+        chmod 644 /home/vscode/.ssh/*.pub 2>/dev/null || true && \
+        echo "✅ SSH keys copied to image"; \
+    else \
+        echo "ℹ️  No SSH keys copied"; \
+    fi && \
+    rm -rf /tmp/ssh-host
+
+# Set up Go environment for vscode user
 RUN mkdir -p /home/vscode/.cache/go-build /home/vscode/go/pkg/mod \
     && chown -R vscode:vscode /home/vscode \
     && chmod 755 /home/vscode/.cache/go-build /home/vscode/go
