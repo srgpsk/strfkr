@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y \
     # Build tools
     build-essential pkg-config \
     # Development utilities
-    htop tree jq vim nano \
+    htop tree yq vim \
     # Network tools for debugging
     net-tools iputils-ping telnet \
     # GPG for commit signing
