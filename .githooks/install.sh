@@ -18,63 +18,37 @@ else
     # Configure GPG
     echo "🔐 Configuring GPG..."
     
+    # Set GPG TTY for container/host
+    export GPG_TTY=$(tty)
+    echo "export GPG_TTY=\$(tty)" >> ~/.bashrc
+    
     # Check if we're in a container environment
     if [ -f "/.dockerenv" ] || [ -n "$REMOTE_CONTAINERS" ] || [ -n "$CODESPACES" ]; then
         echo "📦 Running in container environment"
         
-        # Use container-specific GPG home to avoid affecting host
-        export GNUPGHOME="/tmp/.gnupg-container"
-        mkdir -p "$GNUPGHOME"
-        chmod 700 "$GNUPGHOME"
+        # Use vscode user's home directory
+        GPG_HOME="$HOME/.gnupg"
         
-        # Set GPG TTY for container
-        export GPG_TTY=$(tty)
-        echo "export GPG_TTY=\$(tty)" >> ~/.bashrc
-        echo "export GNUPGHOME=\"$GNUPGHOME\"" >> ~/.bashrc
+        # Simple GPG configuration for container
+        mkdir -p "$GPG_HOME"
+        chmod 700 "$GPG_HOME"
         
-        # Configure GPG for container use with loopback pinentry
-        cat > "$GNUPGHOME/gpg.conf" << EOF
+        cat > "$GPG_HOME/gpg.conf" << EOF
 use-agent
 pinentry-mode loopback
 no-tty
 batch
 EOF
         
-        # Configure GPG agent for container
-        cat > "$GNUPGHOME/gpg-agent.conf" << EOF
+        cat > "$GPG_HOME/gpg-agent.conf" << EOF
 default-cache-ttl 28800
 max-cache-ttl 86400
 allow-loopback-pinentry
 pinentry-program /usr/bin/pinentry-curses
 EOF
         
-        # Kill and restart GPG agent with proper error handling
-        echo "🔄 Restarting GPG agent..."
-        gpgconf --kill gpg-agent 2>/dev/null || true
-        sleep 1
-        gpg-agent --daemon 2>/dev/null || true
-        
-        # Import keys from host if available (but don't modify host directory)
-        if [ -d "/root/.gnupg" ] && [ -f "/root/.gnupg/secring.gpg" -o -f "/root/.gnupg/private-keys-v1.d" ]; then
-            echo "🔑 Importing GPG keys from host..."
-            # Copy keys without changing host permissions
-            if [ -f "/root/.gnupg/secring.gpg" ]; then
-                cp "/root/.gnupg/secring.gpg" "$GNUPGHOME/" 2>/dev/null || true
-            fi
-            if [ -f "/root/.gnupg/pubring.gpg" ]; then
-                cp "/root/.gnupg/pubring.gpg" "$GNUPGHOME/" 2>/dev/null || true
-            fi
-            if [ -d "/root/.gnupg/private-keys-v1.d" ]; then
-                cp -r "/root/.gnupg/private-keys-v1.d" "$GNUPGHOME/" 2>/dev/null || true
-            fi
-            if [ -f "/root/.gnupg/trustdb.gpg" ]; then
-                cp "/root/.gnupg/trustdb.gpg" "$GNUPGHOME/" 2>/dev/null || true
-            fi
-        fi
-        
     else
-        # Host environment configuration - use default GPG home
-        # Ensure GPG directory exists and has correct permissions
+        # Host environment configuration
         mkdir -p ~/.gnupg
         chmod 700 ~/.gnupg
         chmod 600 ~/.gnupg/* 2>/dev/null || true
@@ -89,15 +63,13 @@ default-cache-ttl 28800
 max-cache-ttl 86400
 allow-loopback-pinentry
 EOF
-        
-        # Set GPG TTY environment variable
-        echo 'export GPG_TTY=$(tty)' >> ~/.bashrc
-        export GPG_TTY=$(tty)
-        
-        # Restart GPG agent
-        gpgconf --kill gpg-agent
-        gpg-agent --daemon
     fi
+    
+    # Restart GPG agent
+    echo "🔄 Restarting GPG agent..."
+    gpgconf --kill gpg-agent 2>/dev/null || true
+    sleep 1
+    gpg-agent --daemon 2>/dev/null || true
     
     # Check if GPG keys are available
     if gpg --list-secret-keys --keyid-format=long | grep -q "sec"; then
@@ -107,7 +79,7 @@ EOF
         git config commit.gpgsign true
         git config tag.gpgsign true
         
-        # Test GPG signing with loopback mode
+        # Test GPG signing
         echo "🧪 Testing GPG signing..."
         if echo "test" | gpg --clearsign --armor --pinentry-mode loopback >/dev/null 2>&1; then
             echo "✅ GPG signing test successful!"

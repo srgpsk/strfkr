@@ -53,26 +53,29 @@ ENV GO111MODULE=on
 ENV GOPROXY=https://proxy.golang.org,direct
 ENV GOSUMDB=sum.golang.org
 
-# Development environment
-ENV PATH="/go/bin:${PATH}"
-ENV GOPATH="/go"
-ENV GOCACHE="/root/.cache/go-build"
+# Create vscode user with UID 1000 to match host user
+RUN groupadd --gid 1000 vscode \
+    && useradd --uid 1000 --gid vscode --shell /bin/bash --create-home vscode \
+    && mkdir -p /etc/sudoers.d \
+    && echo 'vscode ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers.d/vscode \
+    && chmod 0440 /etc/sudoers.d/vscode
 
-# Create cache directories with proper permissions
-RUN mkdir -p /go/pkg/mod /root/.cache/go-build \
-    && chmod 755 /go/pkg/mod /root/.cache/go-build
+# Set up Go environment for vscode user (create directories as vscode user)
+RUN mkdir -p /home/vscode/.cache/go-build /home/vscode/go/pkg/mod \
+    && chown -R vscode:vscode /home/vscode \
+    && chmod 755 /home/vscode/.cache/go-build /home/vscode/go
 
-# Verify installations using commands that return exit code 0
-RUN echo "🔍 Verifying tool installations..." && \
-    go version && \
-    air -v && \
-    templ version && \
-    gopls version && \
-    goimports -h > /dev/null 2>&1 || echo "✅ goimports installed" && \
-    golangci-lint --version && \
-    dlv version && \
-    swag -v && \
-    migrate -version && \
-    echo "✅ All tools verified successfully!"
+# Copy Go tools to vscode user's path  
+RUN cp -r /go/bin/* /usr/local/bin/ 2>/dev/null || true
+
+# Switch to vscode user as default
+USER vscode
+
+# Set Go environment variables for vscode user ONLY
+ENV HOME=/home/vscode
+ENV GOCACHE=/home/vscode/.cache/go-build
+ENV GOPATH=/home/vscode/go
+ENV GOMODCACHE=/home/vscode/go/pkg/mod
+ENV PATH="/usr/local/go/bin:/go/bin:/usr/local/bin:${PATH}"
 
 WORKDIR /app

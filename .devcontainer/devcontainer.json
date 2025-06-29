@@ -6,8 +6,14 @@
   "shutdownAction": "stopCompose",
 
   "remoteUser": "vscode",
-  "updateRemoteUserUID": true,
-  
+
+  // Devcontainer specific volumes
+  "mounts": [
+    "source=vscode-server-strfkr,target=/home/vscode/.vscode-server,type=volume",
+    "source=vscode-extensions-strfkr,target=/home/vscode/.vscode-server-insiders,type=volume",
+    "source=vscode-go-tools,target=/home/vscode/go,type=volume"
+  ],
+
   "customizations": {
     "vscode": {
       "extensions": [
@@ -27,15 +33,15 @@
         "editor.codeActionsOnSave": {
           "source.organizeImports": "explicit"
         },
-        "go.gopath": "/go",
+        "go.gopath": "/home/vscode/go", 
         "go.goroot": "/usr/local/go",
         "go.lintTool": "golangci-lint",
         "go.lintOnSave": "package",
         "go.buildOnSave": "off",
         "go.toolsEnvVars": {
           "CGO_ENABLED": "1",
-          "GOMODCACHE": "/go/pkg/mod",
-          "GOCACHE": "/root/.cache/go-build"
+          "GOMODCACHE": "/home/vscode/go/pkg/mod", 
+          "GOCACHE": "/home/vscode/.cache/go-build"
         },
         "terminal.integrated.defaultProfile.linux": "bash",
         "files.associations": {
@@ -49,17 +55,11 @@
     }
   },
 
-  "postCreateCommand": "chmod 700 /root/.gnupg 2>/dev/null || true && chmod 600 /root/.gnupg/* 2>/dev/null || true && export GPG_TTY=$(tty) && go version && .githooks/install.sh && echo '🎉 Development environment ready!'",
-  
-  "overrideCommand": false,
-  
-  "mounts": [
-    "source=${localEnv:HOME}/.ssh,target=/root/.ssh,type=bind,consistency=cached",
-    "source=${localEnv:HOME}/.gnupg,target=/root/.gnupg,type=bind,consistency=cached"
-  ],
-  
+  "postCreateCommand": "go version && .githooks/install.sh && echo '🎉 Development environment ready!'",
+
   "containerEnv": {
-    "GPG_TTY": "/dev/pts/0"
+    "GPG_TTY": "/dev/pts/0",
+    "HOME": "/home/vscode"
   },
   
   "forwardPorts": [8080, 8081, 2345, 2346],

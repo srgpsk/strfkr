@@ -14,13 +14,12 @@ services:
       - "2345:2345"  # Debug port
     volumes:
       - .:/app
-      - ./tmp:/app/tmp  # Air builds
-      - strfkr_go-mod-cache:/go/pkg/mod
-      - strfkr_go-build-cache:/root/.cache/go-build
+      - ./tmp:/app/tmp
+      - strfkr_go-mod-cache:/home/vscode/go/pkg/mod 
+      - strfkr_go-build-cache:/home/vscode/.cache/go-build
       - ./data/webapp:/app/data:rw
-      # GPG and SSH for devcontainer
-      - ${HOME}/.gnupg:/root/.gnupg:cached
-      - ${HOME}/.ssh:/root/.ssh:cached
+      - ${HOME}/.gnupg:/home/vscode/.gnupg:ro
+      - ${HOME}/.ssh:/home/vscode/.ssh:ro
     environment:
       - DEBUG=true
       - LOG_LEVEL=debug
@@ -29,6 +28,10 @@ services:
       - PORT=8080
       - ENV=development
       - TEMPL_HOT_RELOAD=true
+      - HOME=/home/vscode
+      - GOCACHE=/home/vscode/.cache/go-build
+      - GOPATH=/home/vscode/go
+      - GOMODCACHE=/home/vscode/go/pkg/mod 
     networks:
       - app-network
     stdin_open: true
@@ -43,16 +46,19 @@ services:
         BUILDKIT_INLINE_CACHE: 1
     image: scraper
     container_name: scraper
+    # Remove user: "1000:1000" - now using vscode user from Dockerfile
     command: ["sh", "-c", "cd /app && air -c .air-scraper.toml"]
     ports:
       - "8081:8081"
       - "2346:2346"  # Debug port
     volumes:
       - .:/app
-      - ./tmp:/app/tmp  # Air builds
-      - strfkr_go-mod-cache:/go/pkg/mod
-      - strfkr_go-build-cache:/root/.cache/go-build
+      - ./tmp:/app/tmp
+      - strfkr_go-mod-cache:/home/vscode/go/pkg/mod 
+      - strfkr_go-build-cache:/home/vscode/.cache/go-build
       - ./data/scraper:/app/data:rw
+      - ${HOME}/.gnupg:/home/vscode/.gnupg:ro
+      - ${HOME}/.ssh:/home/vscode/.ssh:ro
     environment:
       - DEBUG=true
       - LOG_LEVEL=debug
@@ -60,6 +66,10 @@ services:
       - DB_PATH=/app/data/scraper.db
       - PORT=8081
       - ENV=development
+      - HOME=/home/vscode
+      - GOCACHE=/home/vscode/.cache/go-build
+      - GOPATH=/home/vscode/go
+      - GOMODCACHE=/home/vscode/go/pkg/mod 
     networks:
       - app-network
     stdin_open: true
