@@ -12,7 +12,7 @@ else
     chmod +x .githooks/pre-push
     chmod +x .githooks/commit-msg
     
-    # Install hooks
+    # Install hooks (project-specific setting)
     git config core.hooksPath .githooks
     
     # Configure GPG
@@ -29,7 +29,7 @@ else
         # Keys are already in the image, just set up GPG agent
         GPG_HOME="$HOME/.gnupg"
         
-        # Configure GPG for container use - more permissive settings
+        # Configure GPG for container use
         cat > "$GPG_HOME/gpg.conf" << 'EOF'
 use-agent
 pinentry-mode loopback
@@ -88,41 +88,49 @@ EOF
         KEY_ID=$(gpg --list-secret-keys --keyid-format=long | grep "sec" | head -1 | sed 's/.*\/\([A-F0-9]*\).*/\1/')
         echo "Using key ID: $KEY_ID"
         
-        # Configure Git for signing
-        git config user.signingkey "$KEY_ID"
-        git config commit.gpgsign true
-        git config tag.gpgsign true
+        # Configure Git for signing (PROJECT-LEVEL only if different from global)
+        GLOBAL_KEY=$(git config --global user.signingkey 2>/dev/null || echo "")
+        if [ "$KEY_ID" != "$GLOBAL_KEY" ]; then
+            echo "Setting project-specific signing key: $KEY_ID"
+            git config user.signingkey "$KEY_ID"
+        fi
         
-        # Test GPG signing with empty passphrase
+        # Only set local config if different from global
+        GLOBAL_SIGN=$(git config --global commit.gpgsign 2>/dev/null || echo "false")
+        if [ "$GLOBAL_SIGN" != "true" ]; then
+            git config commit.gpgsign true
+            git config tag.gpgsign true
+        fi
+        
+        # Test GPG signing
         echo "Testing GPG signing..."
         
-        # Try signing with empty passphrase (for keys without passphrase)
         if echo "test" | gpg --clearsign --armor --pinentry-mode loopback --batch --passphrase "" --local-user "$KEY_ID" >/dev/null 2>&1; then
             echo "✅ GPG signing test successful!"
         else
-            echo "❌ GPG key appears to have a passphrase. In a container environment, consider using a key without passphrase for automated signing."
-            echo "You can:"
-            echo "   1. Create a new GPG key without passphrase for development"
-            echo "   2. Or manually unlock the key: gpg --sign --local-user $KEY_ID < /dev/null"
-            echo "   3. Or disable automated signing and sign commits manually"
+            echo "⚠️  GPG key appears to have a passphrase. Consider using a key without passphrase for automated signing."
             
-            # For now, disable automatic signing but keep the key configured
+            # Disable automatic signing for this project only
             git config commit.gpgsign false
             git config tag.gpgsign false
             echo "GPG configured but automatic signing disabled due to passphrase"
         fi
         
     else
-        echo "❌  No GPG keys found."
-        git config commit.gpgsign false
-        git config tag.gpgsign false
+        echo "⚠️  No GPG keys found."
+        # Only set local config if global doesn't already disable it
+        GLOBAL_SIGN=$(git config --global commit.gpgsign 2>/dev/null || echo "false")
+        if [ "$GLOBAL_SIGN" = "true" ]; then
+            git config commit.gpgsign false
+            git config tag.gpgsign false
+        fi
     fi
     
     echo "✅ Git hooks installed!"
 fi
 
 echo ""
-echo "✅ Hooks configured:"
+echo "Hooks configured:"
 echo "  pre-commit: Format, lint, vet (no tests)"
 echo "  pre-push: Full test suite with coverage"
 echo "  commit-msg: Enforce conventional commit format"
