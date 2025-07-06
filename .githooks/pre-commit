@@ -19,7 +19,7 @@ if ! git diff --cached --quiet; then
     
     # Generate SQLC code first (since it's not in git)
     echo "Generating SQLC code..."
-    if ! sqlc generate -f sqlc.spider.yaml; then
+    if ! sqlc generate -f internal/scraper/db/sqlc.yaml; then
         echo "❌ Failed to generate SQLC code"
         exit 1
     fi
