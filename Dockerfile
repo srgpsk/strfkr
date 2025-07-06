@@ -22,7 +22,7 @@ RUN if find . -name "*.templ" -type f | grep -q .; then \
 EXPOSE 8080 8081 2345 2346
 
 # Generate sqlc code at startup, then run air
-CMD ["sh", "-c", "mkdir -p internal/spider/db && sqlc generate -f sqlc.spider.yaml && air -c .air.toml"]
+CMD ["sh", "-c", "mkdir -p internal/scraper/db && sqlc generate -f sqlc.scraper.yaml && air -c .air.toml"]
 
 # Production stage (for later)
 FROM dependencies AS production

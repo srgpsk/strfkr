@@ -1,6 +1,6 @@
 // Coverage exclusion patterns
 cmd/
-internal/spider/db/
+internal/scraper/db/
 *.pb.go
 *_gen.go
 main.go
