@@ -2,12 +2,10 @@ package cli
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -15,6 +13,7 @@ import (
 	"app/internal/scraper/db"
 	"app/internal/scraper/sitemap"
 
+	"github.com/cespare/xxhash/v2"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -47,11 +46,18 @@ type ScrapedPage struct {
 	Error        error
 }
 
-type QueueItem struct {
-	ID       int64
+// PageURLInfo holds URL and its lastmod time from sitemap
+type PageURLInfo struct {
+	URL     string
+	LastMod *time.Time
+}
+
+// PageToProcess holds info for a page to be processed, including lastmod from sitemap
+// Used to propagate lastmod from sitemap parser to scraper logic
+type PageToProcess struct {
 	TargetID int64
 	URL      string
-	Priority int64
+	LastMod  *time.Time
 }
 
 func NewScraperRunner(workers, batchSize int) (*ScraperRunner, error) {
@@ -187,7 +193,7 @@ func (sr *ScraperRunner) Run(targetID int64, showProgress, verbose, dryRun bool)
 }
 
 // parseAndQueueURLs parses sitemap and adds URLs to the queue
-func (sr *ScraperRunner) parseAndQueueURLs(ctx context.Context, target db.ScraperTarget, dryRun bool) ([]string, error) {
+func (sr *ScraperRunner) parseAndQueueURLs(ctx context.Context, target db.ScraperTarget, dryRun bool) ([]PageToProcess, error) {
 	// Parse sitemap to get URLs
 	fmt.Printf("📄 Parsing sitemap for target %d...\n", target.ID)
 
@@ -198,35 +204,37 @@ func (sr *ScraperRunner) parseAndQueueURLs(ctx context.Context, target db.Scrape
 
 	if len(result.URLs) == 0 {
 		fmt.Printf("⚠️  No URLs found in sitemap\n")
-		return []string{}, nil
+		return nil, nil
 	}
 
 	fmt.Printf("📊 Found %d URLs in sitemap\n", len(result.URLs))
 
-	if dryRun {
-		// In dry run, just return the URLs without queuing
-		urls := make([]string, len(result.URLs))
-		for i, url := range result.URLs {
-			urls[i] = url.Loc
+	pages := make([]PageToProcess, len(result.URLs))
+	for i, url := range result.URLs {
+		pages[i] = PageToProcess{
+			TargetID: target.ID,
+			URL:      url.Loc,
+			LastMod:  url.LastModTime,
 		}
-		return urls, nil
 	}
 
-	// Add URLs to queue using batch processing
+	if dryRun {
+		return pages, nil
+	}
+
+	// Add URLs to queue using batch processing (unchanged)
 	urls := make([]string, len(result.URLs))
 	for i, url := range result.URLs {
 		urls[i] = url.Loc
 	}
-
-	// Use batch processing for better performance
-	batchSize := 50 // Process 50 URLs at a time
+	batchSize := 50
 	queuedCount, err := sr.BatchEnqueueURLs(ctx, target.ID, urls, batchSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to batch enqueue URLs: %w", err)
 	}
 
 	fmt.Printf("📊 Successfully queued %d out of %d URLs\n", queuedCount, len(urls))
-	return urls[:queuedCount], nil
+	return pages[:queuedCount], nil
 }
 
 // BatchEnqueueURLs adds multiple URLs to the queue in batches for better performance
@@ -289,6 +297,24 @@ func (sr *ScraperRunner) enqueueBatch(ctx context.Context, targetID int64, urls 
 
 // processQueueWithWorkers starts worker goroutines to process URLs from the queue
 func (sr *ScraperRunner) processQueueWithWorkers(ctx context.Context, stats *RunStats, showProgress, verbose bool) error {
+	// Phase 1: Build lastModMap from all sitemaps for all targets
+	lastModMap := make(map[string]*time.Time)
+	targets, err := sr.queries.ListActiveTargets(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list active targets: %w", err)
+	}
+	for _, target := range targets {
+		if target.SitemapUrl.Valid && target.SitemapUrl.String != "" {
+			ctx2 := context.Background()
+			result, err := sr.parser.ParseSitemapForTarget(ctx2, target.ID)
+			if err == nil {
+				for _, url := range result.URLs {
+					lastModMap[url.Loc] = url.LastModTime
+				}
+			}
+		}
+	}
+
 	// Initialize progress reporter
 	var reporter *ProgressReporter
 	if showProgress {
@@ -302,7 +328,39 @@ func (sr *ScraperRunner) processQueueWithWorkers(ctx context.Context, stats *Run
 	var wg sync.WaitGroup
 	for i := 0; i < sr.workers; i++ {
 		wg.Add(1)
-		go sr.worker(ctx, resultChan, &wg, reporter)
+		go func() {
+			defer wg.Done()
+			for {
+				queueItem, err := sr.queries.DequeuePendingURL(ctx)
+				if err != nil {
+					if err == sql.ErrNoRows {
+						break
+					}
+					resultChan <- ScrapedPage{Error: fmt.Errorf("failed to dequeue URL: %w", err)}
+					continue
+				}
+				lastMod := lastModMap[queueItem.Url]
+				pageToProcess := PageToProcess{
+					TargetID: queueItem.TargetID,
+					URL:      queueItem.Url,
+					LastMod:  lastMod,
+				}
+				page := sr.scrapeURLAttempt(ctx, pageToProcess, lastMod)
+				resultChan <- page
+				if page.Error != nil {
+					if err := sr.queries.FailQueueItem(ctx, db.FailQueueItemParams{
+						ID:           queueItem.ID,
+						ErrorMessage: sql.NullString{String: page.Error.Error(), Valid: true},
+					}); err != nil {
+						fmt.Printf("failed to mark queue item as failed: %v\n", err)
+					}
+				} else {
+					if err := sr.queries.CompleteQueueItem(ctx, queueItem.ID); err != nil {
+						fmt.Printf("failed to mark queue item as complete: %v\n", err)
+					}
+				}
+			}
+		}()
 	}
 
 	// Start result collector
@@ -323,100 +381,15 @@ func (sr *ScraperRunner) processQueueWithWorkers(ctx context.Context, stats *Run
 	return nil
 }
 
-// worker processes URLs from the queue
-func (sr *ScraperRunner) worker(ctx context.Context, resultChan chan<- ScrapedPage, wg *sync.WaitGroup, reporter *ProgressReporter) {
-	defer wg.Done()
-
-	for {
-		// Get next URL from queue
-		queueItem, err := sr.queries.DequeuePendingURL(ctx)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				// No more URLs to process
-				break
-			}
-			// Log error and continue
-			resultChan <- ScrapedPage{Error: fmt.Errorf("failed to dequeue URL: %w", err)}
-			continue
-		}
-
-		// Scrape the URL
-		page := sr.scrapeURL(ctx, queueItem)
-		resultChan <- page
-
-		// Update queue status
-		if page.Error != nil {
-			if err := sr.queries.FailQueueItem(ctx, db.FailQueueItemParams{
-				ID:           queueItem.ID,
-				ErrorMessage: sql.NullString{String: page.Error.Error(), Valid: true},
-			}); err != nil {
-				fmt.Printf("failed to mark queue item as failed: %v\n", err)
-			}
-		} else {
-			if err := sr.queries.CompleteQueueItem(ctx, queueItem.ID); err != nil {
-				fmt.Printf("failed to mark queue item as complete: %v\n", err)
-			}
-		}
-	}
-}
-
-// scrapeURL fetches and processes a single URL with retry logic
-func (sr *ScraperRunner) scrapeURL(ctx context.Context, queueItem db.ScraperQueue) ScrapedPage {
-	var page ScrapedPage
-	var lastError error
-
-	for attempt := 0; attempt <= sr.maxRetries; attempt++ {
-		if attempt > 0 {
-			// Wait before retrying
-			time.Sleep(sr.retryDelay * time.Duration(attempt))
-		}
-
-		page = sr.scrapeURLAttempt(ctx, queueItem)
-
-		// If successful, break out of retry loop
-		if page.Error == nil {
-			break
-		}
-
-		lastError = page.Error
-
-		// Check if error is retryable
-		if !sr.isRetryableError(page.Error) {
-			break
-		}
-
-		// Log retry attempt
-		if attempt < sr.maxRetries {
-			fmt.Printf("⚠️  Retrying %s (attempt %d/%d): %v\n", queueItem.Url, attempt+1, sr.maxRetries, page.Error)
-			// Note: We'll need to pass the reporter here to track retries
-		}
-	}
-
-	// If we exhausted retries, use the last error
-	if page.Error != nil {
-		page.Error = fmt.Errorf("failed after %d retries: %w", sr.maxRetries, lastError)
-	}
-
-	return page
-}
-
 // scrapeURLAttempt performs a single scraping attempt
-func (sr *ScraperRunner) scrapeURLAttempt(ctx context.Context, queueItem db.ScraperQueue) ScrapedPage {
+func (sr *ScraperRunner) scrapeURLAttempt(ctx context.Context, pageToProcess PageToProcess, lastMod *time.Time) ScrapedPage {
 	startTime := time.Now()
-
 	page := ScrapedPage{
-		URL: queueItem.Url,
-	}
-
-	// Create HTTP request
-	req, err := http.NewRequestWithContext(ctx, "GET", queueItem.Url, nil)
-	if err != nil {
-		page.Error = fmt.Errorf("failed to create request: %w", err)
-		return page
+		URL: pageToProcess.URL,
 	}
 
 	// Get target details for user agent
-	target, err := sr.queries.GetTarget(ctx, queueItem.TargetID)
+	target, err := sr.queries.GetTarget(ctx, pageToProcess.TargetID)
 	if err != nil {
 		page.Error = fmt.Errorf("failed to get target: %w", err)
 		return page
@@ -427,19 +400,21 @@ func (sr *ScraperRunner) scrapeURLAttempt(ctx context.Context, queueItem db.Scra
 	if userAgent == "" {
 		userAgent = "ScraperBot/1.0"
 	}
+
+	// Create HTTP request
+	req, err := http.NewRequestWithContext(ctx, "GET", pageToProcess.URL, nil)
+	if err != nil {
+		page.Error = fmt.Errorf("failed to create request: %w", err)
+		return page
+	}
 	req.Header.Set("User-Agent", userAgent)
 
 	// Rate limiting
-	// per target
 	rate := 1.0
 	if target.RequestsPerSecond.Valid && target.RequestsPerSecond.Float64 > 0 {
 		rate = target.RequestsPerSecond.Float64
 	}
-	sr.rateLimiter.WaitN(ctx, queueItem.TargetID, rate)
-
-	// if target.CrawlDelaySeconds.Valid && target.CrawlDelaySeconds.Int64 > 0 {
-	// 	sr.rateLimiter.Wait(target.ID, time.Duration(target.CrawlDelaySeconds.Int64)*time.Second)
-	// }
+	sr.rateLimiter.WaitN(ctx, pageToProcess.TargetID, rate)
 
 	// Make HTTP request
 	resp, err := sr.httpClient.Do(req)
@@ -465,12 +440,49 @@ func (sr *ScraperRunner) scrapeURLAttempt(ctx context.Context, queueItem db.Scra
 
 	page.Content = string(body)
 
-	// Calculate content hash
-	hash := sha256.Sum256(body)
+	// Use xxhash for content hash
+	hash := xxhash.Sum64(body)
 	page.ContentHash = fmt.Sprintf("%x", hash)
 
-	// Save page to database
-	err = sr.savePage(ctx, queueItem.TargetID, page)
+	// Fetch page record from DB
+	pageRecord, err := sr.queries.GetPageByPath(ctx, db.GetPageByPathParams{
+		TargetID: pageToProcess.TargetID,
+		UrlPath:  pageToProcess.URL,
+	})
+	var lastVisitedAt, lastUpdatedAt time.Time
+	var storedHash string
+	if err == nil {
+		lastVisitedAt = pageRecord.LastVisitedAt.Time
+		lastUpdatedAt = pageRecord.LastUpdatedAt.Time
+		storedHash = pageRecord.ContentHash.String
+	}
+
+	// If lastVisitedAt > lastUpdatedAt, skip
+	if !lastVisitedAt.IsZero() && !lastUpdatedAt.IsZero() && lastVisitedAt.After(lastUpdatedAt) {
+		page.Error = fmt.Errorf("skipped: already processed after last update")
+		return page
+	}
+
+	// If lastVisitedAt < lastUpdatedAt, check hash
+	if !lastVisitedAt.IsZero() && !lastUpdatedAt.IsZero() && lastVisitedAt.Before(lastUpdatedAt) {
+		if storedHash == page.ContentHash {
+			page.Error = fmt.Errorf("skipped: hash matches, no update needed")
+			return page
+		}
+	}
+
+	// Save page with last_updated_at from sitemap if available
+	_, err = sr.queries.SavePage(ctx, db.SavePageParams{
+		TargetID:       pageToProcess.TargetID,
+		UrlPath:        pageToProcess.URL, // adjust if needed
+		FullUrl:        pageToProcess.URL,
+		HtmlContent:    sql.NullString{String: page.Content, Valid: true},
+		ContentHash:    sql.NullString{String: page.ContentHash, Valid: true},
+		HttpStatusCode: sql.NullInt64{Int64: int64(page.StatusCode), Valid: true},
+		ResponseTimeMs: sql.NullInt64{Int64: page.ResponseTime.Milliseconds(), Valid: true},
+		ContentLength:  sql.NullInt64{Int64: int64(len(page.Content)), Valid: true},
+		LastUpdatedAt:  sql.NullTime{Time: lastModOrNow(lastMod), Valid: true},
+	})
 	if err != nil {
 		page.Error = fmt.Errorf("failed to save page: %w", err)
 		return page
@@ -479,31 +491,12 @@ func (sr *ScraperRunner) scrapeURLAttempt(ctx context.Context, queueItem db.Scra
 	return page
 }
 
-// savePage stores the scraped page in the database
-func (sr *ScraperRunner) savePage(ctx context.Context, targetID int64, page ScrapedPage) error {
-	// Extract URL path for database storage
-	parsedURL, err := url.Parse(page.URL)
-	if err != nil {
-		return fmt.Errorf("failed to parse URL: %w", err)
+// lastModOrNow returns lastmod if not nil, otherwise now
+func lastModOrNow(t *time.Time) time.Time {
+	if t != nil {
+		return *t
 	}
-
-	urlPath := parsedURL.Path
-	if urlPath == "" {
-		urlPath = "/"
-	}
-
-	_, err = sr.queries.SavePage(ctx, db.SavePageParams{
-		TargetID:       targetID,
-		UrlPath:        urlPath,
-		FullUrl:        page.URL,
-		HtmlContent:    sql.NullString{String: page.Content, Valid: true},
-		ContentHash:    sql.NullString{String: page.ContentHash, Valid: true},
-		HttpStatusCode: sql.NullInt64{Int64: int64(page.StatusCode), Valid: true},
-		ResponseTimeMs: sql.NullInt64{Int64: page.ResponseTime.Milliseconds(), Valid: true},
-		ContentLength:  sql.NullInt64{Int64: int64(len(page.Content)), Valid: true},
-	})
-
-	return err
+	return time.Now()
 }
 
 // resultCollector processes results from workers and updates statistics
@@ -556,42 +549,6 @@ func (sr *ScraperRunner) printSummary(stats *RunStats) {
 	successRate := float64(stats.Processed) / float64(stats.TotalURLs) * 100
 	fmt.Printf("📈 Success rate: %.1f%%\n", successRate)
 	fmt.Printf("%s\n", separator)
-}
-
-// isRetryableError determines if an error is worth retrying
-func (sr *ScraperRunner) isRetryableError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	errorStr := strings.ToLower(err.Error())
-
-	// Retry network-related errors
-	retryableErrors := []string{
-		"timeout",
-		"connection refused",
-		"network is unreachable",
-		"temporary failure",
-		"dns lookup failed",
-		"context deadline exceeded",
-		"i/o timeout",
-		"connection reset by peer",
-	}
-
-	for _, retryable := range retryableErrors {
-		if strings.Contains(errorStr, retryable) {
-			return true
-		}
-	}
-
-	// Retry certain HTTP status codes
-	if strings.Contains(errorStr, "HTTP 5") || // 5xx server errors
-		strings.Contains(errorStr, "HTTP 429") || // Rate limiting
-		strings.Contains(errorStr, "HTTP 408") { // Request timeout
-		return true
-	}
-
-	return false
 }
 
 // SetRetryConfig configures retry behavior
@@ -693,3 +650,23 @@ func (rl *RateLimiter) WaitN(ctx context.Context, targetID int64, rate float64) 
 
 	rl.limits[targetID] = time.Now()
 }
+
+// func extractURLs(pages []sitemap.URL) []string {
+// 	urls := make([]string, len(pages))
+// 	for i, page := range pages {
+// 		urls[i] = page.Loc
+// 	}
+// 	return urls
+// }
+
+// func (sr *ScraperRunner) worker(ctx context.Context, resultChan chan<- ScrapedPage, wg *sync.WaitGroup, reporter *ProgressReporter, lastModMap map[string]*time.Time) {
+// 	// Worker logic here
+// }
+
+// func (sr *ScraperRunner) scrapeURL(ctx context.Context, pageToProcess PageToProcess) ScrapedPage {
+// 	// Scraping logic here
+// }
+
+// func (sr *ScraperRunner) isRetryableError(err error) bool {
+// 	// Retryable error logic here
+// }

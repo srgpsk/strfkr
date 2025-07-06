@@ -37,6 +37,7 @@ CREATE TABLE scraper_pages (
     response_time_ms INTEGER,
     content_length INTEGER,
     last_visited_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_updated_at DATETIME,
     first_discovered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     visit_count INTEGER DEFAULT 1,
     

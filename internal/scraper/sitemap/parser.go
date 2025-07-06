@@ -46,11 +46,13 @@ type Sitemap struct {
 }
 
 // URL represents an individual URL entry
+// LastModTime is set if <lastmod> is present in the sitemap and parsed successfully.
 type URL struct {
-	Loc        string `xml:"loc"`
-	LastMod    string `xml:"lastmod,omitempty"`
-	ChangeFreq string `xml:"changefreq,omitempty"`
-	Priority   string `xml:"priority,omitempty"`
+	Loc         string     `xml:"loc"`
+	LastMod     string     `xml:"lastmod,omitempty"`
+	ChangeFreq  string     `xml:"changefreq,omitempty"`
+	Priority    string     `xml:"priority,omitempty"`
+	LastModTime *time.Time `json:"-"` // Parsed from LastMod
 }
 
 // ParsedSitemap contains the final results
@@ -236,26 +238,23 @@ func (p *Parser) fetchURLSet(ctx context.Context, targetID int64, url, userAgent
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			p.logger.Warn(ctx, &targetID, url, "Failed to close response body", map[string]interface{}{
-				"error": closeErr.Error(),
-			})
-		}
-	}()
+	defer func() { _ = resp.Body.Close() }()
 
 	var urlSet URLSet
 	if err := xml.NewDecoder(resp.Body).Decode(&urlSet); err != nil {
-		p.logger.Error(ctx, &targetID, url, "Failed to decode URL set", map[string]interface{}{
-			"error": err.Error(),
-		})
-		return nil, fmt.Errorf("failed to decode URL set: %w", err)
+		return nil, err
 	}
-
-	p.logger.Info(ctx, &targetID, url, "Successfully parsed sitemap", map[string]interface{}{
-		"url_count": len(urlSet.URLs),
-	})
-
+	for i := range urlSet.URLs {
+		if urlSet.URLs[i].LastMod != "" {
+			t, err := time.Parse("2006-01-02", urlSet.URLs[i].LastMod)
+			if err != nil {
+				t, err = time.Parse(time.RFC3339, urlSet.URLs[i].LastMod)
+			}
+			if err == nil {
+				urlSet.URLs[i].LastModTime = &t
+			}
+		}
+	}
 	return &urlSet, nil
 }
 
