@@ -23,7 +23,11 @@ if ! git diff --cached --quiet; then
         echo "❌ Failed to generate SQLC code"
         exit 1
     fi
-    
+
+    echo "Running go mod tidy..."
+    go mod tidy
+    git add go.mod go.sum
+
     # Get list of staged Go files
     STAGED_GO_FILES=$(git diff --cached --name-only --diff-filter=ACM $against | grep '\.go$' || true)
 
@@ -33,21 +37,15 @@ if ! git diff --cached --quiet; then
         # Format Go files
         echo "$STAGED_GO_FILES" | xargs gofmt -w -s
         echo "$STAGED_GO_FILES" | xargs goimports -w
-        
-        # Add formatted files back to staging
-        echo "$STAGED_GO_FILES" | xargs git add
-        
-        echo "Running go vet..."
-        go vet ./...
-        
-        echo "Running go mod tidy..."
-        go mod tidy
-        git add go.mod go.sum
-        
-        echo "Running golangci-lint..."
-        golangci-lint run --fix --new-from-rev=HEAD
-        
-        # Add any files that golangci-lint might have fixed
+
+        echo "Running go vet on staged packages..."
+        PKG_DIRS=$(echo "$STAGED_GO_FILES" | xargs -n1 dirname | sort -u)
+        for pkg in $PKG_DIRS; do
+            go vet "./$pkg"
+            golangci-lint run --fix "$pkg"
+        done
+
+        # Add any files that might have fixed
         echo "$STAGED_GO_FILES" | xargs git add
     fi
 
