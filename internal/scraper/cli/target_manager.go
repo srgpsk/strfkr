@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -60,12 +58,13 @@ func (tm *TargetManager) Close() error {
 
 func (tm *TargetManager) AddTarget(websiteURL, sitemapURL, userAgent string, autoDiscover, validate bool) error {
 	ctx := context.Background()
+	ss := service.NewSitemapService(30 * time.Second)
 
 	fmt.Printf("Adding target: %s\n", websiteURL)
 
 	// Auto-discover sitemap if needed
 	if sitemapURL == "" && autoDiscover {
-		discovered, err := tm.discoverSitemap(websiteURL)
+		discovered, err := ss.AutoDiscoverSitemap(websiteURL)
 		if err != nil {
 			return fmt.Errorf("failed to discover sitemap: %w", err)
 		}
@@ -75,7 +74,7 @@ func (tm *TargetManager) AddTarget(websiteURL, sitemapURL, userAgent string, aut
 
 	// Validate sitemap if requested
 	if validate && sitemapURL != "" {
-		if err := tm.validateSitemap(ctx, websiteURL, sitemapURL, userAgent); err != nil {
+		if err := ss.ValidateSitemap(ctx, sitemapURL, userAgent); err != nil {
 			return fmt.Errorf("sitemap validation failed: %w", err)
 		}
 		fmt.Printf("✅ Sitemap validation passed\n")
@@ -198,81 +197,5 @@ func (tm *TargetManager) RemoveTarget(targetID int64, force bool) error {
 	}
 
 	fmt.Printf("✅ Target %d (%s) has been deactivated\n", targetID, target.WebsiteUrl)
-	return nil
-}
-
-func (tm *TargetManager) discoverSitemap(websiteURL string) (string, error) {
-	// Try common sitemap locations
-	commonPaths := []string{
-		"/sitemap.xml",
-		"/sitemap_index.xml",
-		"/sitemap.txt",
-		"/robots.txt",
-	}
-
-	parsedURL, err := url.Parse(websiteURL)
-	if err != nil {
-		return "", fmt.Errorf("invalid URL: %w", err)
-	}
-
-	baseURL := fmt.Sprintf("%s://%s", parsedURL.Scheme, parsedURL.Host)
-
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-
-	for _, path := range commonPaths {
-		testURL := baseURL + path
-
-		resp, err := client.Get(testURL)
-		if err != nil {
-			continue
-		}
-		if err := resp.Body.Close(); err != nil {
-			fmt.Printf("failed to close response body: %v\n", err)
-		}
-		if resp.StatusCode == 200 {
-			if path == "/robots.txt" {
-				// Try to parse robots.txt for sitemap references
-				// This is a simplified implementation
-				continue
-			}
-			return testURL, nil
-		}
-	}
-
-	return "", fmt.Errorf("no sitemap found at common locations")
-}
-
-func (tm *TargetManager) validateSitemap(ctx context.Context, websiteURL, sitemapURL, userAgent string) error {
-	// Simple validation - check if sitemap is accessible
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "GET", sitemapURL, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	if userAgent != "" {
-		req.Header.Set("User-Agent", userAgent)
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to fetch sitemap: %w", err)
-	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			fmt.Printf("failed to close response body: %v\n", err)
-		}
-	}()
-
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("sitemap returned status %d", resp.StatusCode)
-	}
-
-	// Additional validation could be added here
 	return nil
 }

@@ -2,8 +2,10 @@ package commands
 
 import (
 	"fmt"
+	"time"
 
 	"app/internal/scraper/cli"
+	"app/internal/scraper/service"
 
 	"github.com/spf13/cobra"
 )
@@ -45,6 +47,8 @@ func runValidateTarget(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
+	sitemapService := service.NewSitemapService(30 * time.Second)
+
 	if targetID > 0 {
 		// Validate existing target by showing its details
 		return manager.ShowTarget(targetID)
@@ -58,13 +62,33 @@ func runValidateTarget(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Validating configuration for: %s\n", websiteURL)
 
 	if sitemapURL == "" && autoDiscover {
-		fmt.Println("Would auto-discover sitemap...")
-		// TODO: Implement auto-discovery validation
+		discovered, err := sitemapService.AutoDiscoverSitemap(websiteURL)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Auto-discovered sitemap: %s\n", discovered)
+		sitemapURL = discovered
 	}
+
+	userAgent := "ScraperBot/1.0" // or get from flags if available
 
 	if sitemapURL != "" {
 		fmt.Printf("Validating sitemap: %s\n", sitemapURL)
-		// TODO: Implement sitemap validation
+		urls, err := sitemapService.ParseSitemapURL(cmd.Context(), sitemapURL, userAgent)
+		if err != nil {
+			return fmt.Errorf("failed to parse sitemap: %w", err)
+		}
+		fmt.Printf("Found %d URLs in sitemap. Previewing up to %d:\n", len(urls), limit)
+		for i, url := range urls {
+			if i >= limit {
+				break
+			}
+			if url.LastModTime != nil {
+				fmt.Printf("- %s (lastmod: %s)\n", url.Loc, url.LastModTime.Format("2006-01-02"))
+			} else {
+				fmt.Printf("- %s\n", url.Loc)
+			}
+		}
 	}
 
 	fmt.Printf("Preview limit: %d URLs\n", limit)
