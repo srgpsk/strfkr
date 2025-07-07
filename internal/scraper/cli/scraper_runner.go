@@ -17,16 +17,39 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+// ScraperQueries defines the subset of db.Queries methods used by ScraperRunner
+// This allows for easier mocking in tests.
+type ScraperQueries interface {
+	GetTarget(ctx context.Context, id int64) (db.ScraperTarget, error)
+	ListActiveTargets(ctx context.Context) ([]db.ScraperTarget, error)
+	GetQueueStats(ctx context.Context) (db.GetQueueStatsRow, error)
+	WithTx(tx *sql.Tx) ScraperQueries // match db.Queries signature for compatibility
+	DequeuePendingURL(ctx context.Context) (db.ScraperQueue, error)
+	FailQueueItem(ctx context.Context, params db.FailQueueItemParams) error
+	CompleteQueueItem(ctx context.Context, id int64) error
+	GetPageByPath(ctx context.Context, params db.GetPageByPathParams) (db.ScraperPage, error)
+	SavePage(ctx context.Context, params db.SavePageParams) (db.ScraperPage, error)
+	EnqueueURL(ctx context.Context, params db.EnqueueURLParams) (db.ScraperQueue, error)
+}
+
+// SitemapParser defines the interface for sitemap parsing
+// This allows for easier mocking in tests.
+type SitemapParser interface {
+	ParseSitemapForTarget(ctx context.Context, targetID int64) (*sitemap.ParsedSitemap, error)
+}
+
 type ScraperRunner struct {
 	db          *sql.DB
-	queries     *db.Queries
-	parser      *sitemap.Parser
+	queries     ScraperQueries
+	parser      SitemapParser
 	workers     int
 	batchSize   int
 	httpClient  *http.Client
 	maxRetries  int
 	retryDelay  time.Duration
 	rateLimiter *RateLimiter
+	// For testability: allows injection of batch enqueuer
+	enqueueBatchFunc func(ctx context.Context, targetID int64, urls []string) (int, error)
 }
 
 type RunStats struct {
@@ -67,7 +90,7 @@ func NewScraperRunner(workers, batchSize int) (*ScraperRunner, error) {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	queries := db.New(database)
+	queries := &dbQueriesAdapter{q: db.New(database)}
 
 	// Create sitemap parser with database access
 	parser := sitemap.NewParser(queries, 30*time.Second)
@@ -79,7 +102,7 @@ func NewScraperRunner(workers, batchSize int) (*ScraperRunner, error) {
 
 	return &ScraperRunner{
 		db:          database,
-		queries:     queries,
+		queries:     queries, // Wrap db.Queries with dbQueriesAdapter
 		parser:      parser,
 		workers:     workers,
 		batchSize:   batchSize,
@@ -248,7 +271,13 @@ func (sr *ScraperRunner) BatchEnqueueURLs(ctx context.Context, targetID int64, u
 		}
 
 		batch := urls[i:end]
-		queued, err := sr.enqueueBatch(ctx, targetID, batch)
+		var queued int
+		var err error
+		if sr.enqueueBatchFunc != nil {
+			queued, err = sr.enqueueBatchFunc(ctx, targetID, batch)
+		} else {
+			queued, err = sr.enqueueBatch(ctx, targetID, batch)
+		}
 		if err != nil {
 			return totalQueued, fmt.Errorf("failed to enqueue batch starting at index %d: %w", i, err)
 		}
@@ -331,6 +360,11 @@ func (sr *ScraperRunner) processQueueWithWorkers(ctx context.Context, stats *Run
 		go func() {
 			defer wg.Done()
 			for {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
 				queueItem, err := sr.queries.DequeuePendingURL(ctx)
 				if err != nil {
 					if err == sql.ErrNoRows {
@@ -445,32 +479,39 @@ func (sr *ScraperRunner) scrapeURLAttempt(ctx context.Context, pageToProcess Pag
 	page.ContentHash = fmt.Sprintf("%x", hash)
 
 	// Fetch page record from DB
+	fmt.Printf("[DEBUG] Checking for existing page record: TargetID=%d, UrlPath=%s\n", pageToProcess.TargetID, pageToProcess.URL)
 	pageRecord, err := sr.queries.GetPageByPath(ctx, db.GetPageByPathParams{
 		TargetID: pageToProcess.TargetID,
 		UrlPath:  pageToProcess.URL,
 	})
+	fmt.Printf("[DEBUG] GetPageByPath err: %v, pageRecord: %+v\n", err, pageRecord)
 	var lastVisitedAt, lastUpdatedAt time.Time
 	var storedHash string
 	if err == nil {
 		lastVisitedAt = pageRecord.LastVisitedAt.Time
 		lastUpdatedAt = pageRecord.LastUpdatedAt.Time
 		storedHash = pageRecord.ContentHash.String
+		fmt.Printf("[DEBUG] lastVisitedAt: %v, lastUpdatedAt: %v, storedHash: %s\n", lastVisitedAt, lastUpdatedAt, storedHash)
 	}
 
 	// If lastVisitedAt > lastUpdatedAt, skip
 	if !lastVisitedAt.IsZero() && !lastUpdatedAt.IsZero() && lastVisitedAt.After(lastUpdatedAt) {
+		fmt.Printf("[DEBUG] Skipping: lastVisitedAt > lastUpdatedAt\n")
 		page.Error = fmt.Errorf("skipped: already processed after last update")
 		return page
 	}
 
 	// If lastVisitedAt < lastUpdatedAt, check hash
 	if !lastVisitedAt.IsZero() && !lastUpdatedAt.IsZero() && lastVisitedAt.Before(lastUpdatedAt) {
+		fmt.Printf("[DEBUG] lastVisitedAt < lastUpdatedAt, storedHash: %s, newHash: %s\n", storedHash, page.ContentHash)
 		if storedHash == page.ContentHash {
+			fmt.Printf("[DEBUG] Skipping: hash matches, no update needed\n")
 			page.Error = fmt.Errorf("skipped: hash matches, no update needed")
 			return page
 		}
 	}
 
+	fmt.Printf("[DEBUG] Saving page: TargetID=%d, UrlPath=%s\n", pageToProcess.TargetID, pageToProcess.URL)
 	// Save page with last_updated_at from sitemap if available
 	_, err = sr.queries.SavePage(ctx, db.SavePageParams{
 		TargetID:       pageToProcess.TargetID,
@@ -484,10 +525,12 @@ func (sr *ScraperRunner) scrapeURLAttempt(ctx context.Context, pageToProcess Pag
 		LastUpdatedAt:  sql.NullTime{Time: lastModOrNow(lastMod), Valid: true},
 	})
 	if err != nil {
+		fmt.Printf("[DEBUG] Failed to save page: %v\n", err)
 		page.Error = fmt.Errorf("failed to save page: %w", err)
 		return page
 	}
 
+	fmt.Printf("[DEBUG] Page saved successfully: %s\n", pageToProcess.URL)
 	return page
 }
 
@@ -651,6 +694,61 @@ func (rl *RateLimiter) WaitN(ctx context.Context, targetID int64, rate float64) 
 	rl.limits[targetID] = time.Now()
 }
 
+// Helper for sql.NullInt64: returns a valid or invalid value based on input
+// func nullInt64(val interface{}) sql.NullInt64 {
+// 	if val == nil {
+// 		return sql.NullInt64{Valid: false}
+// 	}
+// 	switch v := val.(type) {
+// 	case int64:
+// 		return sql.NullInt64{Int64: v, Valid: true}
+// 	case *int64:
+// 		if v == nil {
+// 			return sql.NullInt64{Valid: false}
+// 		}
+// 		return sql.NullInt64{Int64: *v, Valid: true}
+// 	case int:
+// 		return sql.NullInt64{Int64: int64(v), Valid: true}
+// 	case *int:
+// 		if v == nil {
+// 			return sql.NullInt64{Valid: false}
+// 		}
+// 		return sql.NullInt64{Int64: int64(*v), Valid: true}
+// 	}
+// 	return sql.NullInt64{Valid: false}
+// }
+
+// Helper for sql.NullString: returns a valid or invalid value based on input
+// func nullString(val interface{}) sql.NullString {
+// 	if val == nil {
+// 		return sql.NullString{Valid: false}
+// 	}
+// 	switch v := val.(type) {
+// 	case string:
+// 		return sql.NullString{String: v, Valid: true}
+// 	case *string:
+// 		if v == nil {
+// 			return sql.NullString{Valid: false}
+// 		}
+// 		return sql.NullString{String: *v, Valid: true}
+// 	}
+// 	return sql.NullString{Valid: false}
+// }
+
+// Helper for sql.NullBool: returns a valid or invalid value based on input
+// func nullBool(val *bool) sql.NullBool {
+// 	if val == nil {
+// 		return sql.NullBool{Valid: false}
+// 	}
+// 	return sql.NullBool{Bool: *val, Valid: true}
+// }
+
+// --- Fix for TestScraperRunner_SkipUpdateLogic ---
+// Use the test server's base URL for all queue and page records
+// This should be done in the test file, not here, but document for clarity
+// --- Fix for TestScraperRunner_ParseAndQueueURLs_HTTP ---
+// Use a mockQueries with a working EnqueueURL method in the test file
+
 // func extractURLs(pages []sitemap.URL) []string {
 // 	urls := make([]string, len(pages))
 // 	for i, page := range pages {
@@ -670,3 +768,41 @@ func (rl *RateLimiter) WaitN(ctx context.Context, targetID int64, rate float64) 
 // func (sr *ScraperRunner) isRetryableError(err error) bool {
 // 	// Retryable error logic here
 // }
+
+// dbQueriesAdapter wraps *db.Queries to implement ScraperQueries with the correct WithTx signature
+// This allows production code to use the interface, and tests to use mocks
+
+type dbQueriesAdapter struct {
+	q *db.Queries
+}
+
+func (a *dbQueriesAdapter) GetTarget(ctx context.Context, id int64) (db.ScraperTarget, error) {
+	return a.q.GetTarget(ctx, id)
+}
+func (a *dbQueriesAdapter) ListActiveTargets(ctx context.Context) ([]db.ScraperTarget, error) {
+	return a.q.ListActiveTargets(ctx)
+}
+func (a *dbQueriesAdapter) GetQueueStats(ctx context.Context) (db.GetQueueStatsRow, error) {
+	return a.q.GetQueueStats(ctx)
+}
+func (a *dbQueriesAdapter) WithTx(tx *sql.Tx) ScraperQueries {
+	return &dbQueriesAdapter{q: a.q.WithTx(tx)}
+}
+func (a *dbQueriesAdapter) DequeuePendingURL(ctx context.Context) (db.ScraperQueue, error) {
+	return a.q.DequeuePendingURL(ctx)
+}
+func (a *dbQueriesAdapter) FailQueueItem(ctx context.Context, params db.FailQueueItemParams) error {
+	return a.q.FailQueueItem(ctx, params)
+}
+func (a *dbQueriesAdapter) CompleteQueueItem(ctx context.Context, id int64) error {
+	return a.q.CompleteQueueItem(ctx, id)
+}
+func (a *dbQueriesAdapter) GetPageByPath(ctx context.Context, params db.GetPageByPathParams) (db.ScraperPage, error) {
+	return a.q.GetPageByPath(ctx, params)
+}
+func (a *dbQueriesAdapter) SavePage(ctx context.Context, params db.SavePageParams) (db.ScraperPage, error) {
+	return a.q.SavePage(ctx, params)
+}
+func (a *dbQueriesAdapter) EnqueueURL(ctx context.Context, params db.EnqueueURLParams) (db.ScraperQueue, error) {
+	return a.q.EnqueueURL(ctx, params)
+}
