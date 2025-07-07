@@ -10,10 +10,10 @@ import (
 )
 
 type TargetsHandler struct {
-	queries *db.Queries
+	queries db.Querier
 }
 
-func NewTargetsHandler(queries *db.Queries) *TargetsHandler {
+func NewTargetsHandler(queries db.Querier) *TargetsHandler {
 	return &TargetsHandler{queries: queries}
 }
 

@@ -12,10 +12,10 @@ import (
 )
 
 type APIHandler struct {
-	queries *db.Queries
+	queries db.Querier
 }
 
-func NewAPIHandler(queries *db.Queries) *APIHandler {
+func NewAPIHandler(queries db.Querier) *APIHandler {
 	return &APIHandler{queries: queries}
 }
 

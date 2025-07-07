@@ -10,10 +10,10 @@ import (
 )
 
 type DashboardHandler struct {
-	queries *db.Queries
+	queries db.Querier
 }
 
-func NewDashboardHandler(queries *db.Queries) *DashboardHandler {
+func NewDashboardHandler(queries db.Querier) *DashboardHandler {
 	return &DashboardHandler{queries: queries}
 }
 
