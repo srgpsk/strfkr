@@ -1,29 +1,23 @@
 #!/bin/bash
 set -e
+ 
+# Minimal Go coverage script for pre-push hook, with pattern exclusion
 
-echo "🧪 Running tests with coverage..."
-
-# Generate coverage for all packages
 go test -coverprofile=coverage.out ./...
 
-# Remove excluded files from coverage
+# Exclude patterns from coverage.out if coverage.ignore exists
 if [ -f coverage.ignore ]; then
-    echo "Excluding files from coverage calculation..."
+    echo "Excluding patterns from coverage.out..."
+    cp coverage.out coverage.tmp
     while IFS= read -r pattern; do
-        # Skip empty lines and comments
         [[ -z "$pattern" || "$pattern" =~ ^[[:space:]]*# ]] && continue
-        
-        # Remove matching lines from coverage file
-        grep -v "$pattern" coverage.out > coverage.tmp && mv coverage.tmp coverage.out || true
+        grep -v "$pattern" coverage.tmp > coverage.tmp2
+        mv coverage.tmp2 coverage.tmp
+        echo "Excluding pattern: $pattern"
     done < coverage.ignore
+    mv coverage.tmp coverage.out
 fi
 
-# Calculate final coverage
 COVERAGE=$(go tool cover -func=coverage.out | tail -1 | awk '{print $3}' | sed 's/%//')
-echo "📊 Final coverage: $COVERAGE%"
-
-# Generate HTML report
-go tool cover -html=coverage.out -o coverage.html
-echo "📄 HTML report generated: coverage.html"
 
 echo $COVERAGE
