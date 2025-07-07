@@ -1,0 +1,111 @@
+package layouts
+
+templ Base(title string) {
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{ title } - Scraper Admin</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .htmx-indicator {
+            opacity: 0;
+            transition: opacity 500ms ease-in;
+        }
+        .htmx-request .htmx-indicator {
+            opacity: 1;
+        }
+        .htmx-request.htmx-indicator {
+            opacity: 1;
+        }
+        
+        /* Loading animations */
+        .loading-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100" hx-boost="true">
+    @Navigation()
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        { children... }
+    </main>
+    @HTMXScripts()
+</body>
+</html>
+}
+
+templ Navigation() {
+    <nav class="bg-blue-800 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center space-x-4">
+                    <i class="fas fa-spider text-2xl"></i>
+                    <h1 class="text-xl font-bold">Scraper Admin</h1>
+                    <span class="text-sm bg-blue-700 px-2 py-1 rounded">Port: 8081</span>
+                </div>
+                <div class="flex space-x-6">
+                    <a href="/" class="hover:text-blue-200 transition">
+                        <i class="fas fa-tachometer-alt mr-2"></i>Dashboard
+                    </a>
+                    <a href="/health" class="hover:text-blue-200 transition">
+                        <i class="fas fa-heartbeat mr-2"></i>Health
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+}
+
+templ HTMXScripts() {
+    <script>
+        // HTMX configuration
+        htmx.config.globalViewTransitions = true;
+        htmx.config.refreshOnHistoryMiss = true;
+        
+        // Global HTMX event handlers
+        document.addEventListener('htmx:beforeRequest', function(evt) {
+            const target = evt.target;
+            const loadingEl = target.querySelector('.htmx-indicator');
+            if (loadingEl) {
+                loadingEl.style.opacity = '1';
+            }
+        });
+        
+        document.addEventListener('htmx:afterRequest', function(evt) {
+            const target = evt.target;
+            const loadingEl = target.querySelector('.htmx-indicator');
+            if (loadingEl) {
+                loadingEl.style.opacity = '0';
+            }
+        });
+        
+        // Modal handling
+        document.addEventListener('htmx:afterSwap', function(evt) {
+            if (evt.target.id === 'modal-content') {
+                const modal = evt.target;
+                modal.classList.remove('hidden');
+                // Close modal on backdrop click
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        modal.classList.add('hidden');
+                        modal.innerHTML = '';
+                    }
+                });
+            }
+        });
+
+        // Error handling
+        document.addEventListener('htmx:responseError', function(evt) {
+            console.error('HTMX Error:', evt.detail);
+        });
+    </script>
+}

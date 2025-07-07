@@ -1,0 +1,100 @@
+package components
+
+import (
+	"app/cmd/scraper/ui/models"
+	"time"
+)
+
+type LogEntry struct {
+	Timestamp time.Time
+	Level     string
+	Message   string
+	URL       string
+	Details   string
+}
+
+func (l LogEntry) LevelColor() string {
+	switch l.Level {
+	case "error":
+		return "red"
+	case "warn":
+		return "yellow"
+	case "info":
+		return "blue"
+	case "success":
+		return "green"
+	default:
+		return "gray"
+	}
+}
+
+func (l LogEntry) LevelIcon() string {
+	switch l.Level {
+	case "error":
+		return "exclamation-circle"
+	case "warn":
+		return "exclamation-triangle"
+	case "info":
+		return "info-circle"
+	case "success":
+		return "check-circle"
+	default:
+		return "circle"
+	}
+}
+
+templ LogsList(logs []models.LogEntry) {
+	<div class="space-y-2">
+		if len(logs) == 0 {
+			@LogsEmpty()
+		} else {
+			for _, log := range logs {
+				@LogItem(log)
+			}
+		}
+	</div>
+}
+
+templ LogsEmpty() {
+	<div class="text-center py-8">
+		<i class="fas fa-file-alt text-4xl text-gray-300 mb-4 block"></i>
+		<p class="text-gray-500">No recent activity.</p>
+	</div>
+}
+
+templ LogItem(log models.LogEntry) {
+	<div class={ "text-sm text-gray-600 border-l-4 border-" + log.LevelColor() + "-400 pl-3 py-2 hover:bg-gray-50 transition" }>
+		<div class="flex items-center justify-between">
+			<div class="flex items-center space-x-2">
+				<span class="font-mono text-xs text-gray-500">
+					{ log.Timestamp.Format("15:04:05") }
+				</span>
+				<span class={ "text-" + log.LevelColor() + "-600 font-semibold" }>
+					<i class={ "fas fa-" + log.LevelIcon() + " mr-1" }></i>
+					[{ log.Level }]
+				</span>
+			</div>
+		</div>
+		<div class="mt-1">
+			<span class="text-gray-800">{ log.Message }</span>
+			if log.URL != "" {
+				<div class="text-xs text-gray-500 mt-1">
+					URL: <code class="bg-gray-100 px-1 rounded">{ log.URL }</code>
+				</div>
+			}
+			if log.Details != "" {
+				<div class="text-xs text-gray-500 mt-1">
+					{ log.Details }
+				</div>
+			}
+		</div>
+	</div>
+}
+
+templ LogsLoading() {
+	<div class="animate-pulse space-y-3">
+		for i := 0; i < 5; i++ {
+			<div class="h-12 bg-gray-200 rounded"></div>
+		}
+	</div>
+}

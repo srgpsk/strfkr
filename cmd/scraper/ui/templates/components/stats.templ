@@ -1,0 +1,42 @@
+package components
+
+import (
+	"fmt"
+	"app/cmd/scraper/ui/models"
+)
+
+templ StatsCards(stats models.StatsData) {
+	<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+		@StatCard("Active Targets", stats.Targets, "globe", "blue")
+		@StatCard("Pending Queue", stats.PendingQueue, "clock", "yellow") 
+		@StatCard("Crawled Pages", stats.TotalPages, "file-alt", "green")
+		@StatCard("24h Errors", stats.RecentErrors, "exclamation-triangle", "red")
+	</div>
+}
+
+templ StatCard(title string, value int, icon string, color string) {
+	<div class="bg-white rounded-lg shadow p-6">
+		<div class="flex items-center">
+			<div class={ fmt.Sprintf("p-2 bg-%s-100 rounded-lg", color) }>
+				<i class={ fmt.Sprintf("fas fa-%s text-%s-600 text-xl", icon, color) }></i>
+			</div>
+			<div class="ml-4">
+				<h3 class="text-sm font-medium text-gray-500">{ title }</h3>
+				<p class="text-2xl font-bold text-gray-900">{ fmt.Sprintf("%d", value) }</p>
+			</div>
+		</div>
+	</div>
+}
+
+templ StatsLoading() {
+	<div class="animate-pulse space-y-3">
+		<div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+			for i := 0; i < 4; i++ {
+				<div class="bg-white rounded-lg shadow p-6">
+					<div class="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+					<div class="h-8 bg-gray-200 rounded w-1/2"></div>
+				</div>
+			}
+		</div>
+	</div>
+}

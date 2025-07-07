@@ -1,0 +1,30 @@
+package pages
+
+import (
+    "app/cmd/scraper/ui/templates/layouts"
+    "app/cmd/scraper/ui/templates/components"
+    "app/cmd/scraper/ui/models"
+)
+
+templ Logs(logs []models.LogEntry) {
+    @layouts.Base("Activity Logs") {
+        <div class="space-y-6">
+            <div class="flex justify-between items-center">
+                <h1 class="text-2xl font-bold text-gray-900">Activity Logs</h1>
+                <button 
+                    class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+                    hx-get="/api/logs?limit=50"
+                    hx-target="#logs-container"
+                    hx-swap="innerHTML">
+                    <i class="fas fa-sync mr-2"></i>Refresh
+                </button>
+            </div>
+            
+            <div id="logs-container" class="bg-white rounded-lg shadow">
+                <div class="p-6">
+                    @components.LogsList(logs)
+                </div>
+            </div>
+        </div>
+    }
+}

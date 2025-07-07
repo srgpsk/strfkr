@@ -1,0 +1,21 @@
+package components
+
+templ LoadingSpinner() {
+    <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+}
+
+templ LoadingCard() {
+    <div class="bg-white rounded-lg shadow p-6 animate-pulse">
+        <div class="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+        <div class="h-8 bg-gray-200 rounded w-1/2"></div>
+    </div>
+}
+
+templ LoadingIndicator() {
+    <div class="htmx-indicator">
+        <div class="flex items-center justify-center space-x-2">
+            @LoadingSpinner()
+            <span class="text-gray-600">Loading...</span>
+        </div>
+    </div>
+}

@@ -1,0 +1,159 @@
+package components
+
+import (
+    "fmt"
+    "app/cmd/scraper/ui/models"
+)
+
+templ TargetsList(targets []models.TargetData) {
+    <div class="space-y-3">
+        if len(targets) == 0 {
+            @TargetsEmpty()
+        } else {
+            for _, target := range targets {
+                @TargetItem(target)
+            }
+        }
+    </div>
+}
+
+templ TargetsEmpty() {
+    <div class="text-center py-8">
+        <i class="fas fa-globe text-4xl text-gray-300 mb-4 block"></i>
+        <p class="text-gray-500">No targets configured yet.</p>
+        <button 
+            class="mt-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+            hx-get="/targets/new"
+            hx-target="#modal-content">
+            <i class="fas fa-plus mr-2"></i>Add First Target
+        </button>
+    </div>
+}
+
+templ TargetItem(target models.TargetData) {
+    <div class="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition">
+        <div class="flex justify-between items-start">
+            <div class="flex-1">
+                <div class="flex items-center space-x-2 mb-2">
+                    <i class="fas fa-globe text-blue-600"></i>
+                    <h4 class="font-medium text-gray-900">{ target.WebsiteURL }</h4>
+                    <span class={ "px-2 py-1 text-xs rounded-full", 
+                        templ.KV("bg-green-100 text-green-800", target.Status == "active"),
+                        templ.KV("bg-yellow-100 text-yellow-800", target.Status == "pending"),
+                        templ.KV("bg-red-100 text-red-800", target.Status == "error") }>
+                        { target.Status }
+                    </span>
+                </div>
+                <div class="text-sm text-gray-500">
+                    Added { target.CreatedAt.Format("Jan 2, 2006") }
+                </div>
+            </div>
+            <div class="flex space-x-2">
+                <button 
+                    class="text-blue-600 hover:text-blue-800 p-1"
+                    hx-get={ "/targets/" + fmt.Sprintf("%d", target.ID) + "/edit" }
+                    hx-target="#modal-content"
+                    title="Edit target">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button 
+                    class="text-red-600 hover:text-red-800 p-1"
+                    hx-delete={ "/api/targets/" + fmt.Sprintf("%d", target.ID) }
+                    hx-confirm="Delete this target?"
+                    hx-target="closest .bg-gray-50"
+                    hx-swap="outerHTML"
+                    title="Delete target">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+templ TargetsLoading() {
+    <div class="animate-pulse space-y-3">
+        for i := 0; i < 3; i++ {
+            <div class="h-16 bg-gray-200 rounded-lg"></div>
+        }
+    </div>
+}
+
+templ TargetForm() {
+    <div class="bg-white rounded-lg shadow-lg p-6 max-w-md mx-auto">
+        <div class="space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-semibold">Add New Target</h3>
+                <button 
+                    class="text-gray-400 hover:text-gray-600"
+                    onclick="document.getElementById('modal-content').classList.add('hidden'); document.getElementById('modal-content').innerHTML = '';">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form 
+                hx-post="/api/targets" 
+                hx-target="#form-result"
+                class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Website URL
+                    </label>
+                    <input 
+                        type="url" 
+                        name="website_url" 
+                        required 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value="https://"
+						placeholder="https://quotes.toscrape.com">
+                    <p class="text-xs text-gray-500 mt-1">The main website URL to crawl</p>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Sitemap URL (Optional)
+                    </label>
+                    <input 
+                        type="url" 
+                        name="sitemap_url" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="https://quotes.toscrape.com/sitemap.xml">
+                    <p class="text-xs text-gray-500 mt-1">Leave blank to auto-discover</p>
+                </div>
+                
+                <div class="flex space-x-3 pt-4">
+                    <button 
+                        type="submit" 
+                        class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <i class="fas fa-plus mr-2"></i>Add Target
+                    </button>
+                    <button 
+                        type="button" 
+                        class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                        onclick="document.getElementById('modal-content').classList.add('hidden'); document.getElementById('modal-content').innerHTML = '';">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+            
+            <div id="form-result"></div>
+        </div>
+    </div>
+}
+
+templ FormError(message string) {
+    <div class="bg-red-50 border border-red-200 rounded-md p-3 mt-4">
+        <div class="flex">
+            <i class="fas fa-exclamation-circle text-red-400 mr-2"></i>
+            <div class="text-sm text-red-800">{ message }</div>
+        </div>
+    </div>
+}
+
+templ FormSuccess(message string) {
+    <div class="bg-green-50 border border-green-200 rounded-md p-3 mt-4">
+        <div class="flex">
+            <i class="fas fa-check-circle text-green-400 mr-2"></i>
+            <div class="text-sm text-green-800">{ message }</div>
+        </div>
+    </div>
+}

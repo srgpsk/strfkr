@@ -1,0 +1,35 @@
+package pages
+
+import (
+    "app/cmd/scraper/ui/templates/layouts"
+    "app/cmd/scraper/ui/templates/components"
+    "app/cmd/scraper/ui/models"
+)
+
+templ Targets(targets []models.TargetData) {
+    @layouts.Base("Targets") {
+        <div class="space-y-6">
+            <div class="flex justify-between items-center">
+                <h1 class="text-2xl font-bold text-gray-900">Scraping Targets</h1>
+                <button 
+                    class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+                    hx-get="/targets/new"
+                    hx-target="#modal-content"
+                    hx-swap="innerHTML">
+                    <i class="fas fa-plus mr-2"></i>Add Target
+                </button>
+            </div>
+            
+            <div id="targets-container" class="bg-white rounded-lg shadow">
+                <div class="p-6">
+                    @components.TargetsList(targets)
+                </div>
+            </div>
+        </div>
+        
+        <!-- Modal Container for HTMX -->
+        <div id="modal-content" class="fixed inset-0 z-50 hidden">
+            <!-- Modal content will be loaded here via HTMX -->
+        </div>
+    }
+}

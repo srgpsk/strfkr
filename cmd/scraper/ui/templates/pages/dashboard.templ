@@ -1,0 +1,107 @@
+package pages
+
+import (
+    "app/cmd/scraper/ui/templates/layouts"
+    "app/cmd/scraper/ui/templates/components"
+)
+
+templ Dashboard() {
+    @layouts.Base("Dashboard") {
+        <!-- Quick Actions with HTMX -->
+        <div class="bg-white rounded-lg shadow p-6 mb-8">
+            <h2 class="text-lg font-semibold mb-4">Quick Actions</h2>
+            <div class="flex flex-wrap gap-4">
+                <button 
+                    class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+                    hx-get="/targets/new"
+                    hx-target="#modal-content"
+                    hx-swap="innerHTML">
+                    <i class="fas fa-plus mr-2"></i>Add Target
+                </button>
+                <button 
+                    class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
+                    hx-post="/api/crawl/start"
+                    hx-target="#crawl-status"
+                    hx-swap="innerHTML">
+                    <i class="fas fa-play mr-2"></i>Start Crawling
+                </button>
+                <button 
+                    class="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700 transition"
+                    hx-post="/api/sitemap/refresh-all"
+                    hx-target="#refresh-status"
+                    hx-swap="innerHTML">
+                    <i class="fas fa-sync mr-2"></i>Refresh Sitemaps
+                </button>
+            </div>
+        </div>
+
+        <!-- Stats Cards with REDUCED auto-refresh -->
+        <div id="stats-container" 
+             hx-get="/api/stats" 
+             hx-trigger="load, every 60s"
+             hx-swap="innerHTML">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <!-- Loading placeholders -->
+                for i := 0; i < 4; i++ {
+                    <div class="bg-white rounded-lg shadow p-6 animate-pulse">
+                        <div class="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                        <div class="h-8 bg-gray-200 rounded w-1/2"></div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Recent Activity with REDUCED auto-refresh -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Recent Targets -->
+            <div class="bg-white rounded-lg shadow">
+                <div class="p-6 border-b flex justify-between items-center">
+                    <h2 class="text-lg font-semibold">Recent Targets</h2>
+                    <button 
+                        class="text-blue-600 hover:text-blue-800 transition"
+                        hx-get="/api/targets?limit=5"
+                        hx-target="#targets-list"
+                        hx-swap="innerHTML">
+                        <i class="fas fa-sync text-sm"></i>
+                    </button>
+                </div>
+                <div id="targets-list" 
+                     class="p-6" 
+                     hx-get="/api/targets?limit=5" 
+                     hx-trigger="load"
+                     hx-swap="innerHTML">
+                    @components.TargetsLoading()
+                </div>
+            </div>
+
+            <!-- Recent Logs -->
+            <div class="bg-white rounded-lg shadow">
+                <div class="p-6 border-b flex justify-between items-center">
+                    <h2 class="text-lg font-semibold">Recent Activity</h2>
+                    <button 
+                        class="text-blue-600 hover:text-blue-800 transition"
+                        hx-get="/api/logs?limit=10"
+                        hx-target="#logs-list"
+                        hx-swap="innerHTML">
+                        <i class="fas fa-sync text-sm"></i>
+                    </button>
+                </div>
+                <div id="logs-list" 
+                     class="p-6" 
+                     hx-get="/api/logs?limit=10" 
+                     hx-trigger="load"
+                     hx-swap="innerHTML">
+                    @components.LogsLoading()
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Messages - HTMX Targets -->
+        @components.StatusContainer()
+        
+        <!-- Modal Container -->
+        <div id="modal-content" class="fixed inset-0 z-50 hidden bg-black bg-opacity-50 flex items-center justify-center">
+            <!-- Modal content will be loaded here via HTMX -->
+        </div>
+    }
+}
