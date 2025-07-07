@@ -38,10 +38,11 @@ if ! git diff --cached --quiet; then
         echo "$STAGED_GO_FILES" | xargs gofmt -w -s
         echo "$STAGED_GO_FILES" | xargs goimports -w
 
-        echo "Running go vet on staged packages..."
         PKG_DIRS=$(echo "$STAGED_GO_FILES" | xargs -n1 dirname | sort -u)
         for pkg in $PKG_DIRS; do
+            echo "Running go vet on staged packages..."
             go vet "./$pkg"
+            echo "Running golangci-lint on staged packages..."
             golangci-lint run --fix "$pkg"
         done
 
