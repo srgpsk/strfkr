@@ -10,12 +10,12 @@ echo "🏃 Running tests with race detection..."
 go test -race ./...
 
 # Run coverage calculation with exclusions
+COVERAGE=$(bash scripts/coverage.sh)
 echo "📊 Running tests with coverage..."
-bash scripts/coverage.sh
+echo "Coverage: $COVERAGE%"
 
 # Check coverage threshold for tested packages only
-COVERAGE=$(bash scripts/coverage.sh)
-THRESHOLD=60  # Lowered to 60% for tested packages only
+THRESHOLD=60
 
 if [ "${COVERAGE%.*}" -lt $THRESHOLD ]; then
     echo "❌ Test coverage ($COVERAGE%) is below threshold ($THRESHOLD%)"
