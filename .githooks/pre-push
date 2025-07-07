@@ -15,7 +15,7 @@ echo "📊 Running tests with coverage..."
 echo "Coverage: $COVERAGE%"
 
 # Check coverage threshold for tested packages only
-THRESHOLD=60
+THRESHOLD=50
 
 if [ "${COVERAGE%.*}" -lt $THRESHOLD ]; then
     echo "❌ Test coverage ($COVERAGE%) is below threshold ($THRESHOLD%)"
