@@ -1,6 +1,5 @@
-// Coverage exclusion patterns
-cmd/
-internal/scraper/db/
-*.pb.go
-*_gen.go
+internal/scraper/db
 main.go
+cmd/scraper/ui/templates
+cmd/scraper/ui/models
+web/static/generated
