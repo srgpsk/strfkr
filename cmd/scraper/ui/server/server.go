@@ -11,15 +11,18 @@ import (
 )
 
 // Server holds the application dependencies and routes
+// Accepts db.Querier for testability
+// Handler instances can be injected for testing
+
 type Server struct {
-	queries *db.Queries
+	queries db.Querier
 	db      *sql.DB
 	mux     *http.ServeMux
 
 	// Handler instances
-	dashboardHandler *handlers.DashboardHandler
-	apiHandler       *handlers.APIHandler
-	targetsHandler   *handlers.TargetsHandler
+	dashboardHandler DashboardHandlerIface
+	apiHandler       APIHandlerIface
+	targetsHandler   TargetsHandlerIface
 }
 
 // New creates a new server instance
@@ -43,6 +46,38 @@ func New(database *sql.DB) *Server {
 	return s
 }
 
+// Handler interfaces for test injection
+
+type DashboardHandlerIface interface {
+	Dashboard(http.ResponseWriter, *http.Request)
+	HealthAPI(http.ResponseWriter, *http.Request)
+}
+type APIHandlerIface interface {
+	Stats(http.ResponseWriter, *http.Request)
+	TargetsList(http.ResponseWriter, *http.Request)
+	Logs(http.ResponseWriter, *http.Request)
+	StartCrawling(http.ResponseWriter, *http.Request)
+	RefreshSitemaps(http.ResponseWriter, *http.Request)
+}
+type TargetsHandlerIface interface {
+	NewForm(http.ResponseWriter, *http.Request)
+	Create(http.ResponseWriter, *http.Request)
+	Delete(http.ResponseWriter, *http.Request)
+}
+
+// NewWithHandlers for testing
+func NewWithHandlers(queries db.Querier, dashboardHandler DashboardHandlerIface, apiHandler APIHandlerIface, targetsHandler TargetsHandlerIface) *Server {
+	s := &Server{
+		queries:          queries,
+		mux:              http.NewServeMux(),
+		dashboardHandler: dashboardHandler,
+		apiHandler:       apiHandler,
+		targetsHandler:   targetsHandler,
+	}
+	s.setupRoutes()
+	return s
+}
+
 // setupRoutes configures all application routes
 func (s *Server) setupRoutes() {
 	// Static files for admin UI
@@ -62,7 +97,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /api/targets", withMiddleware(s.targetsHandler.Create))
 	s.mux.Handle("DELETE /api/targets/{id}", withMiddleware(s.targetsHandler.Delete))
 
-	// Crawling control routes - ADD THESE
+	// Crawling control routes
 	s.mux.Handle("POST /api/crawl/start", withMiddleware(s.apiHandler.StartCrawling))
 	s.mux.Handle("POST /api/sitemap/refresh-all", withMiddleware(s.apiHandler.RefreshSitemaps))
 }
