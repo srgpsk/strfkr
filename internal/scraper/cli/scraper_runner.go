@@ -788,6 +788,11 @@ func (a *dbQueriesAdapter) GetQueueStats(ctx context.Context) (db.GetQueueStatsR
 func (a *dbQueriesAdapter) WithTx(tx *sql.Tx) ScraperQueries {
 	return &dbQueriesAdapter{q: a.q.WithTx(tx)}
 }
+
+// Add missing LogMessage method to satisfy logger.LoggerQueries
+func (a *dbQueriesAdapter) LogMessage(ctx context.Context, params db.LogMessageParams) error {
+	return a.q.LogMessage(ctx, params)
+}
 func (a *dbQueriesAdapter) DequeuePendingURL(ctx context.Context) (db.ScraperQueue, error) {
 	return a.q.DequeuePendingURL(ctx)
 }

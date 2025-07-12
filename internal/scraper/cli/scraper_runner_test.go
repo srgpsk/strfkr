@@ -70,6 +70,11 @@ func (m *mockQueries) SavePage(ctx context.Context, params db.SavePageParams) (d
 	return db.ScraperPage{}, nil
 }
 
+// Add LogMessage to mockQueries for tests
+func (m *mockQueries) LogMessage(ctx context.Context, params db.LogMessageParams) error {
+	return nil // or record params for assertions if needed
+}
+
 // mockParser implements SitemapParser for testing
 type mockParser struct{ URLs []mockURL }
 type mockURL struct {
