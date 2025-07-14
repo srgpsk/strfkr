@@ -1,4 +1,4 @@
-package service
+package sitemap
 
 import (
 	"context"
@@ -8,8 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"time"
-
-	"app/internal/scraper/sitemap"
 )
 
 type SitemapService struct {
@@ -82,7 +80,7 @@ func (s *SitemapService) ValidateSitemap(ctx context.Context, sitemapURL, userAg
 }
 
 // ParseSitemapURL fetches and parses a sitemap.xml from a URL, returning URLs for preview
-func (s *SitemapService) ParseSitemapURL(ctx context.Context, sitemapURL, userAgent string) ([]sitemap.URL, error) {
+func (s *SitemapService) ParseSitemapURL(ctx context.Context, sitemapURL, userAgent string) ([]URL, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", sitemapURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -102,7 +100,7 @@ func (s *SitemapService) ParseSitemapURL(ctx context.Context, sitemapURL, userAg
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("sitemap returned status %d", resp.StatusCode)
 	}
-	var urlSet sitemap.URLSet
+	var urlSet URLSet
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err

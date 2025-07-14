@@ -11,7 +11,7 @@ import (
 
 	"app/internal/scraper/config"
 	"app/internal/scraper/db"
-	"app/internal/scraper/logger"
+	"app/internal/scraper/service/logger"
 )
 
 // ParserQueries defines the interface needed for sitemap parsing
