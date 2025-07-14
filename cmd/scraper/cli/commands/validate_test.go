@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"app/internal/scraper/service/sitemap"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -8,12 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"app/internal/scraper/service"
 	"context"
 )
 
 func TestParseSitemapURL(t *testing.T) {
-	svc := service.NewSitemapService(2 * time.Second)
+	svc := sitemap.NewSitemapService(2 * time.Second)
 	ctx := context.Background()
 	t.Run("valid sitemap with lastmod", func(t *testing.T) {
 		sitemapXML := `<?xml version="1.0" encoding="UTF-8"?>

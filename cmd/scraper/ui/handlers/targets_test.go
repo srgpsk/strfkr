@@ -99,6 +99,12 @@ func (m *mockTargetsQueries) UpdateTargetPatterns(ctx context.Context, arg db.Up
 	return nil
 }
 func (m *mockTargetsQueries) GetPendingQueueCount(ctx context.Context) (int64, error) { return 0, nil }
+func (m *mockTargetsQueries) GetPageClassifier(ctx context.Context, arg db.GetPageClassifierParams) (db.GetPageClassifierRow, error) {
+	return db.GetPageClassifierRow{}, nil
+}
+func (m *mockTargetsQueries) SavePageClassifier(ctx context.Context, arg db.SavePageClassifierParams) error {
+	return nil
+}
 
 func TestTargetsHandler_NewForm(t *testing.T) {
 	h := &TargetsHandler{queries: &mockTargetsQueries{}}

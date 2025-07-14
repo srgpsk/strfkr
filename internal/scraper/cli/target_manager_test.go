@@ -60,8 +60,8 @@ func TestTargetManager_AddAndShowTarget_InMemory(t *testing.T) {
 
 	// Run all migrations needed for test DB
 	migrationFiles := []string{
-		"../db/migrations/001_initial_schema.sql",
-		"../db/migrations/002_rate_limit_per_target.sql",
+		"../db/migrations/001_initial_schema.up.sql",
+		"../db/migrations/002_rate_limit_per_target.up.sql",
 	}
 	for _, mf := range migrationFiles {
 		println("[DEBUG] Applying migration:", mf)

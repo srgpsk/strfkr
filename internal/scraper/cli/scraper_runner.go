@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,7 +12,8 @@ import (
 	"time"
 
 	"app/internal/scraper/db"
-	"app/internal/scraper/sitemap"
+	"app/internal/scraper/service/classifier"
+	"app/internal/scraper/service/sitemap"
 
 	"github.com/cespare/xxhash/v2"
 	_ "github.com/mattn/go-sqlite3"
@@ -30,6 +32,7 @@ type ScraperQueries interface {
 	GetPageByPath(ctx context.Context, params db.GetPageByPathParams) (db.ScraperPage, error)
 	SavePage(ctx context.Context, params db.SavePageParams) (db.ScraperPage, error)
 	EnqueueURL(ctx context.Context, params db.EnqueueURLParams) (db.ScraperQueue, error)
+	SavePageClassifier(ctx context.Context, classifierJSON string, processable bool, targetID int64, url string) error // <-- Added missing method
 }
 
 // SitemapParser defines the interface for sitemap parsing
@@ -381,6 +384,16 @@ func (sr *ScraperRunner) processQueueWithWorkers(ctx context.Context, stats *Run
 				}
 				page := sr.scrapeURLAttempt(ctx, pageToProcess, lastMod)
 				resultChan <- page
+
+				// --- Quote Page Classifier Integration ---
+				classifier := classifier.NewQuotePageClassifierService()
+				classifierResult, err := classifier.ClassifyPage(pageToProcess.URL, page.Content) // <-- Use page.Content instead of page.HtmlContent
+				if err == nil && classifierResult != nil {
+					jsonStr, _ := json.Marshal(classifierResult)
+					_ = sr.queries.SavePageClassifier(ctx, string(jsonStr), classifierResult.Decision.Processable, queueItem.TargetID, queueItem.Url)
+				}
+				// --- End Integration ---
+
 				if page.Error != nil {
 					if err := sr.queries.FailQueueItem(ctx, db.FailQueueItemParams{
 						ID:           queueItem.ID,
@@ -810,4 +823,13 @@ func (a *dbQueriesAdapter) SavePage(ctx context.Context, params db.SavePageParam
 }
 func (a *dbQueriesAdapter) EnqueueURL(ctx context.Context, params db.EnqueueURLParams) (db.ScraperQueue, error) {
 	return a.q.EnqueueURL(ctx, params)
+}
+func (a *dbQueriesAdapter) SavePageClassifier(ctx context.Context, classifierJSON string, processable bool, targetID int64, url string) error {
+	params := db.SavePageClassifierParams{
+		QuoteClassifierJson: sql.NullString{String: classifierJSON, Valid: true},
+		Processable:         sql.NullBool{Bool: processable, Valid: true},
+		TargetID:            targetID,
+		UrlPath:             url,
+	}
+	return a.q.SavePageClassifier(ctx, params)
 }

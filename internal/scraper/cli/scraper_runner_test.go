@@ -8,12 +8,13 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
 
 	"app/internal/scraper/db"
-	"app/internal/scraper/sitemap"
+	"app/internal/scraper/service/sitemap"
 
 	"github.com/cespare/xxhash/v2"
 )
@@ -75,6 +76,11 @@ func (m *mockQueries) LogMessage(ctx context.Context, params db.LogMessageParams
 	return nil // or record params for assertions if needed
 }
 
+// Add SavePageClassifier stub to mockQueries
+func (m *mockQueries) SavePageClassifier(ctx context.Context, classifierJSON string, processable bool, targetID int64, url string) error {
+	return nil
+}
+
 // mockParser implements SitemapParser for testing
 type mockParser struct{ URLs []mockURL }
 type mockURL struct {
@@ -92,10 +98,12 @@ func (m *mockParser) ParseSitemapForTarget(ctx context.Context, id int64) (*site
 
 // Helper to run all migration SQL files in migrationsDir into dbConn
 func runMigrations(t *testing.T, dbConn *sql.DB, migrationsDir string) {
-	files, err := filepath.Glob(filepath.Join(migrationsDir, "*.sql"))
+	files, err := filepath.Glob(filepath.Join(migrationsDir, "*.up.sql")) // Only .up.sql files
 	if err != nil {
 		t.Fatalf("failed to list migrations: %v", err)
 	}
+	// Sort files to apply in order
+	sort.Strings(files)
 	for _, path := range files {
 		content, err := os.ReadFile(path)
 		if err != nil {
@@ -260,6 +268,11 @@ type enqueueMockQueries struct {
 func (m *enqueueMockQueries) EnqueueURL(ctx context.Context, params db.EnqueueURLParams) (db.ScraperQueue, error) {
 	m.EnqueueURLCalls = append(m.EnqueueURLCalls, params)
 	return db.ScraperQueue{Url: params.Url}, nil
+}
+
+// Add SavePageClassifier stub to enqueueMockQueries
+func (m *enqueueMockQueries) SavePageClassifier(ctx context.Context, classifierJSON string, processable bool, targetID int64, url string) error {
+	return nil
 }
 
 // Fix: enqueueMockQueries should implement WithTx to return itself as ScraperQueries

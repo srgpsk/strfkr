@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"app/internal/scraper/cli"
-	"app/internal/scraper/service"
+	"app/internal/scraper/service/sitemap"
 
 	"github.com/spf13/cobra"
 )
@@ -47,7 +47,7 @@ func runValidateTarget(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
-	sitemapService := service.NewSitemapService(30 * time.Second)
+	sitemapService := sitemap.NewSitemapService(30 * time.Second)
 
 	if targetID > 0 {
 		// Validate existing target by showing its details

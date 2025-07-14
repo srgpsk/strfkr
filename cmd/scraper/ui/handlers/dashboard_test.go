@@ -104,6 +104,12 @@ func (m *mockDashboardQueries) UpdateTargetPatterns(ctx context.Context, arg db.
 func (m *mockDashboardQueries) GetPendingQueueCount(ctx context.Context) (int64, error) {
 	return 0, nil
 } // unused
+func (m *mockDashboardQueries) GetPageClassifier(ctx context.Context, arg db.GetPageClassifierParams) (db.GetPageClassifierRow, error) {
+	return db.GetPageClassifierRow{}, nil
+}
+func (m *mockDashboardQueries) SavePageClassifier(ctx context.Context, arg db.SavePageClassifierParams) error {
+	return nil
+}
 
 func TestDashboardHandler_Dashboard(t *testing.T) {
 	h := &DashboardHandler{queries: &mockDashboardQueries{}}

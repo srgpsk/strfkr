@@ -121,6 +121,14 @@ func (m *mockQueries) UpdateTargetLastVisited(ctx context.Context, id int64) err
 func (m *mockQueries) UpdateTargetPatterns(ctx context.Context, arg db.UpdateTargetPatternsParams) error {
 	panic("not implemented")
 }
+func (m *mockQueries) GetPageClassifier(ctx context.Context, arg db.GetPageClassifierParams) (db.GetPageClassifierRow, error) {
+	return db.GetPageClassifierRow{}, nil
+}
+
+// --- Add missing method to satisfy db.Querier interface ---
+func (m *mockQueries) SavePageClassifier(ctx context.Context, arg db.SavePageClassifierParams) error {
+	return nil
+}
 
 func TestAPIHandler_Stats(t *testing.T) {
 	mock := &mockQueries{

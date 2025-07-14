@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"app/internal/scraper/db"
-	"app/internal/scraper/service"
-	"app/internal/scraper/sitemap"
+	"app/internal/scraper/service/sitemap"
+	"app/internal/scraper/service/target"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -18,7 +18,7 @@ import (
 type TargetManager struct {
 	db            *sql.DB
 	queries       *db.Queries
-	targetService *service.TargetService
+	targetService *target.TargetService
 	parser        *sitemap.Parser
 }
 
@@ -39,7 +39,7 @@ func NewTargetManager() (*TargetManager, error) {
 	}
 
 	queries := db.New(database)
-	targetService := service.NewTargetService(queries)
+	targetService := target.NewTargetService(queries)
 
 	// Create sitemap parser with database access
 	parser := sitemap.NewParser(queries, 30*time.Second)
@@ -58,7 +58,7 @@ func (tm *TargetManager) Close() error {
 
 func (tm *TargetManager) AddTarget(websiteURL, sitemapURL, userAgent string, autoDiscover, validate bool) error {
 	ctx := context.Background()
-	ss := service.NewSitemapService(30 * time.Second)
+	ss := sitemap.NewSitemapService(30 * time.Second)
 
 	fmt.Printf("Adding target: %s\n", websiteURL)
 
