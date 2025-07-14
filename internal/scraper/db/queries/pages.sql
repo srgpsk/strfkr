@@ -22,3 +22,11 @@ SELECT * FROM scraper_pages WHERE target_id = ? ORDER BY last_visited_at DESC LI
 
 -- name: GetPageContentHash :one
 SELECT content_hash FROM scraper_pages WHERE target_id = ? AND url_path = ? LIMIT 1;
+
+-- name: SavePageClassifier :exec
+UPDATE scraper_pages
+SET quote_classifier_json = ?, processable = ?
+WHERE target_id = ? AND url_path = ?;
+
+-- name: GetPageClassifier :one
+SELECT quote_classifier_json, processable FROM scraper_pages WHERE target_id = ? AND url_path = ?;
