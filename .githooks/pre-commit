@@ -74,16 +74,32 @@ if ! git diff --cached --quiet; then
         if [ -n "$JSON_FILES" ]; then
             echo "Validating JSON files..."
             for file in $JSON_FILES; do
-                if ! go run -c 'package main
-import ("encoding/json"; "os")
+                if command -v jq >/dev/null 2>&1; then
+                    if ! jq empty "$file"; then
+                        echo "❌ Invalid JSON syntax in: $file"
+                        echo "See above for error details."
+                        exit 1
+                    fi
+                else
+                    # Fallback to Go, but print error details
+                    if ! go run -c 'package main
+import (
+    "encoding/json"
+    "os"
+    "fmt"
+)
 func main() {
     var v interface{}
-    if err := json.NewDecoder(os.Stdin).Decode(&v); err != nil {
+    dec := json.NewDecoder(os.Stdin)
+    if err := dec.Decode(&v); err != nil {
+        fmt.Fprintf(os.Stderr, "JSON error: %v\n", err)
         os.Exit(1)
     }
-}' < "$file" 2>/dev/null; then
-                    echo "❌ Invalid JSON syntax in: $file"
-                    exit 1
+}' < "$file"; then
+                        echo "❌ Invalid JSON syntax in: $file"
+                        echo "See above for error details."
+                        exit 1
+                    fi
                 fi
             done
             echo "JSON files validated"
