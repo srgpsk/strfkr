@@ -1,6 +1,6 @@
 { 
   "go.toolsManagement.checkForUpdates": "off",
-  "go.useLanguageServer": false,
+  "go.useLanguageServer": true,
   "go.survey.prompt": false,
   "go.formatTool": "gofmt",
   "go.lintTool": "staticcheck",
@@ -9,8 +9,6 @@
   "go.testOnSave": false,
   "go.coverOnSave": false,
   "go.installDependenciesWhenBuilding": false,
-  
-  // GitHub Copilot settings
   "github.copilot.enable": {
     "*": true,
     "yaml": true,
@@ -23,13 +21,11 @@
   "github.copilot.advanced": {
     "debug.overrideEngine": "copilot-codex"
   },
-  
-  // Templ template support
   "files.associations": {
     "*.templ": "html",
     ".githooks/*": "shellscript",
     ".githooks/pre-commit": "shellscript",
-    ".githooks/pre-push": "shellscript", 
+    ".githooks/pre-push": "shellscript",
     ".githooks/commit-msg": "shellscript",
     ".githooks/install.sh": "shellscript"
   },
@@ -62,7 +58,6 @@
     "stackTraceDepth": 50,
     "showGlobalVariables": true
   },
-  
   "containers.environment": {
     "COMPOSE_DOCKER_CLI_BUILD": "1",
     "DOCKER_BUILDKIT": "1"
